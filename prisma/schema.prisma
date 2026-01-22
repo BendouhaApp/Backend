@@ -1,14 +1,177 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
+}
+generator nestjsDto {
+  provider                        = "prisma-generator-nestjs-dto"
+  output                          = "../src/generated"
+  outputToNestJsResourceStructure = "false"
+  exportRelationModifierClasses   = "true"
+  reExport                        = "false"
+  createDtoPrefix                 = "Create"
+  updateDtoPrefix                 = "Update"
+  dtoSuffix                       = "Dto"
+  entityPrefix                    = ""
+  entitySuffix                    = ""
+  fileNamingStyle                 = "camel"
 }
 
 datasource db {
   provider = "postgresql"
+}
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model admins {
+  id            Int       @id @default(autoincrement())
+  username      String    @unique @db.VarChar(50)
+  email         String    @unique @db.VarChar(100)
+  password_hash String    @db.VarChar(255)
+  full_name     String?   @db.VarChar(100)
+  is_active     Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+  updated_at    DateTime? @default(now()) @db.Timestamp(6)
+  orders        orders[]
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model categories {
+  id               Int                @id @default(autoincrement())
+  name             String             @db.VarChar(100)
+  slug             String             @unique @db.VarChar(100)
+  description      String?
+  parent_id        Int?
+  is_active        Boolean?           @default(true)
+  created_at       DateTime?          @default(now()) @db.Timestamp(6)
+  updated_at       DateTime?          @default(now()) @db.Timestamp(6)
+  categories       categories?        @relation("categoriesTocategories", fields: [parent_id], references: [id], onUpdate: NoAction)
+  other_categories categories[]       @relation("categoriesTocategories")
+  product_subtypes product_subtypes[]
+  products         products[]
+
+  @@index([parent_id], map: "idx_categories_parent")
+  @@index([slug], map: "idx_categories_slug")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model order_items {
+  id           Int       @id @default(autoincrement())
+  order_id     Int
+  product_id   Int?
+  product_name String    @db.VarChar(255)
+  product_sku  String?   @db.VarChar(100)
+  quantity     Int
+  unit_price   Decimal   @db.Decimal(10, 2)
+  total_price  Decimal   @db.Decimal(10, 2)
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+  orders       orders    @relation(fields: [order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products     products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_items_order")
+  @@index([product_id], map: "idx_order_items_product")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model order_statuses {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String?
+  sort_order  Int?     @default(0)
+  orders      orders[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model orders {
+  id                   Int            @id @default(autoincrement())
+  order_number         String         @unique @db.VarChar(50)
+  status_id            Int
+  customer_name        String         @db.VarChar(100)
+  customer_email       String         @db.VarChar(100)
+  customer_phone       String?        @db.VarChar(20)
+  shipping_address     String
+  shipping_city        String?        @db.VarChar(100)
+  shipping_state       String?        @db.VarChar(100)
+  shipping_postal_code String?        @db.VarChar(20)
+  shipping_country     String?        @db.VarChar(100)
+  billing_address      String?
+  billing_city         String?        @db.VarChar(100)
+  billing_state        String?        @db.VarChar(100)
+  billing_postal_code  String?        @db.VarChar(20)
+  billing_country      String?        @db.VarChar(100)
+  subtotal             Decimal        @db.Decimal(10, 2)
+  tax_amount           Decimal?       @default(0) @db.Decimal(10, 2)
+  shipping_cost        Decimal?       @default(0) @db.Decimal(10, 2)
+  discount_amount      Decimal?       @default(0) @db.Decimal(10, 2)
+  total_amount         Decimal        @db.Decimal(10, 2)
+  notes                String?
+  admin_notes          String?
+  created_by           Int?
+  created_at           DateTime?      @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?      @default(now()) @db.Timestamp(6)
+  order_items          order_items[]
+  admins               admins?        @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  order_statuses       order_statuses @relation(fields: [status_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_orders_created_at")
+  @@index([customer_email], map: "idx_orders_customer_email")
+  @@index([order_number], map: "idx_orders_order_number")
+  @@index([status_id], map: "idx_orders_status")
+}
+
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model product_subtypes {
+  id          Int         @id @default(autoincrement())
+  name        String      @db.VarChar(100)
+  slug        String      @unique @db.VarChar(100)
+  description String?
+  category_id Int?
+  is_active   Boolean?    @default(true)
+  created_at  DateTime?   @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?   @default(now()) @db.Timestamp(6)
+  categories  categories? @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  products    products[]
+
+  @@index([category_id], map: "idx_subtypes_category")
+  @@index([slug], map: "idx_subtypes_slug")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model products {
+  id                  Int               @id @default(autoincrement())
+  name                String            @db.VarChar(255)
+  slug                String            @unique @db.VarChar(255)
+  description         String?
+  short_description   String?
+  sku                 String            @unique @db.VarChar(100)
+  price               Decimal           @db.Decimal(10, 2)
+  cost_price          Decimal?          @db.Decimal(10, 2)
+  stock_quantity      Int?              @default(0)
+  low_stock_threshold Int?              @default(10)
+  category_id         Int?
+  subtype_id          Int?
+  brand               String?           @db.VarChar(100)
+  model_number        String?           @db.VarChar(100)
+  voltage             String?           @db.VarChar(50)
+  wattage             String?           @db.VarChar(50)
+  power_consumption   String?           @db.VarChar(100)
+  warranty_months     Int?
+  image_url           String?           @db.VarChar(500)
+  is_active           Boolean?          @default(true)
+  is_featured         Boolean?          @default(false)
+  weight              Decimal?          @db.Decimal(10, 2)
+  dimensions          String?           @db.VarChar(100)
+  created_at          DateTime?         @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?         @default(now()) @db.Timestamp(6)
+  order_items         order_items[]
+  categories          categories?       @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  product_subtypes    product_subtypes? @relation(fields: [subtype_id], references: [id], onUpdate: NoAction)
+
+  @@index([is_active], map: "idx_products_active")
+  @@index([brand], map: "idx_products_brand")
+  @@index([category_id], map: "idx_products_category")
+  @@index([sku], map: "idx_products_sku")
+  @@index([slug], map: "idx_products_slug")
+  @@index([subtype_id], map: "idx_products_subtype")
 }

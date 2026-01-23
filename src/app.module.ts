@@ -8,9 +8,10 @@ import { OrderItemsModule } from './order-items/order-items.module';
 import { OrderStatusesModule } from './order-statuses/order-statuses.module';
 import { ProductsModule } from './products/products.module';
 import { ProductSubtypesModule } from './product-subtypes/product-subtypes.module';
+import { PrismaModule } from './prisma/prisma.module';
 
 @Module({
-  imports: [AdminsModule, CategoriesModule, OrdersModule, OrderItemsModule, OrderStatusesModule, ProductsModule, ProductSubtypesModule],
+  imports: [PrismaModule, AdminsModule, CategoriesModule, OrdersModule, OrderItemsModule, OrderStatusesModule, ProductsModule, ProductSubtypesModule],
   controllers: [AppController],
   providers: [AppService],
 })

@@ -1,42 +1,43 @@
-import { ApiProperty , ApiPropertyOptional  } from "@nestjs/swagger";
-import { IsString, IsOptional, IsInt, IsNotEmpty, IsBoolean } from 'class-validator';
-import { Type } from "class-transformer"
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsInt, IsNotEmpty, IsBoolean, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateCategoryDto {
-      @ApiProperty({
-        example: 'Wall lapm',
-        description: "categorie name"
-      })
-      @IsString()
-      @IsNotEmpty()
-      name: string;
 
-      @ApiPropertyOptional({
-        example: 'wall lapm for home',
-        description: 'categorie descripton'
-      })
-      @IsOptional()
-      @IsString()
-      description?: string;
+  @ApiProperty({
+    example: 'Wall lamp',
+    description: 'Category name',
+  })
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-      @ApiPropertyOptional({
-        example: 1,
-        description: 'parent categorie id'
-      })
-      @IsOptional()
-      @IsInt()
-      @Type(() => Number)
-      parent_id?: number;
+  @ApiPropertyOptional({
+    example: 'Wall lamps for home',
+    description: 'Category description',
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  description?: string;
 
-      @ApiPropertyOptional({
-        example: true,
-        description: 'is categorie active',
-        default: true
-      })
-      @IsOptional()
-      @IsBoolean()
-      @Type(() => Boolean)
-      is_active?: boolean;
+  @ApiPropertyOptional({
+    example: 1,
+    description: 'Parent category ID',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  parent_id?: number;
 
-    
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Is category active',
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  @Type(() => Boolean)
+  is_active?: boolean;
 }

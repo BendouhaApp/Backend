@@ -1,65 +1,147 @@
 
-import {Prisma} from '@prisma/client'
-import {ApiProperty,getSchemaPath} from '@nestjs/swagger'
+import {Prisma} from '../../generated/prisma'
+import {ApiProperty} from '@nestjs/swagger'
 
 
 
 
 export class CreateOrdersDto {
-  order_number: string;
-customer_name: string;
-customer_email: string;
-customer_phone?: string;
-shipping_address: string;
-shipping_city?: string;
-shipping_state?: string;
-shipping_postal_code?: string;
-shipping_country?: string;
-billing_address?: string;
-billing_city?: string;
-billing_state?: string;
-billing_postal_code?: string;
-billing_country?: string;
-@ApiProperty({
-  type: `number`,
-  format: `double`,
+  @ApiProperty({
+  type: 'string',
 })
-subtotal: Prisma.Decimal;
+order_number: string ;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+})
+customer_name: string ;
+@ApiProperty({
+  type: 'string',
+})
+customer_email: string ;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+customer_phone?: string  | null;
+@ApiProperty({
+  type: 'string',
+})
+shipping_address: string ;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+shipping_city?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+shipping_state?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+shipping_postal_code?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+shipping_country?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+billing_address?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+billing_city?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+billing_state?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+billing_postal_code?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+billing_country?: string  | null;
+@ApiProperty({
+  type: 'string',
+  format: 'Decimal.js',
+})
+subtotal: Prisma.Decimal ;
+@ApiProperty({
+  type: 'string',
+  format: 'Decimal.js',
   default: 0,
+  required: false,
+  nullable: true,
 })
-tax_amount?: Prisma.Decimal;
+tax_amount?: Prisma.Decimal  | null;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  format: 'Decimal.js',
   default: 0,
+  required: false,
+  nullable: true,
 })
-shipping_cost?: Prisma.Decimal;
+shipping_cost?: Prisma.Decimal  | null;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  format: 'Decimal.js',
   default: 0,
+  required: false,
+  nullable: true,
 })
-discount_amount?: Prisma.Decimal;
+discount_amount?: Prisma.Decimal  | null;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  format: 'Decimal.js',
 })
-total_amount: Prisma.Decimal;
-notes?: string;
-admin_notes?: string;
+total_amount: Prisma.Decimal ;
 @ApiProperty({
-  type: `string`,
-  format: `date-time`,
-  default: `now`,
+  type: 'string',
+  required: false,
+  nullable: true,
 })
-created_at?: Date;
+notes?: string  | null;
 @ApiProperty({
-  type: `string`,
-  format: `date-time`,
-  default: `now`,
+  type: 'string',
+  required: false,
+  nullable: true,
 })
-updated_at?: Date;
+admin_notes?: string  | null;
+@ApiProperty({
+  type: 'string',
+  format: 'date-time',
+  default: new Date().toISOString(),
+  required: false,
+  nullable: true,
+})
+created_at?: Date  | null;
+@ApiProperty({
+  type: 'string',
+  format: 'date-time',
+  default: new Date().toISOString(),
+  required: false,
+  nullable: true,
+})
+updated_at?: Date  | null;
 }

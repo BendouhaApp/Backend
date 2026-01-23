@@ -1,16 +1,26 @@
 
-import {ApiProperty,getSchemaPath} from '@nestjs/swagger'
+import {ApiProperty} from '@nestjs/swagger'
 
 
 
 
 export class CreateOrderStatusesDto {
-  name: string;
-description?: string;
-@ApiProperty({
-  type: `integer`,
-  format: `int32`,
-  default: 0,
+  @ApiProperty({
+  type: 'string',
 })
-sort_order?: number;
+name: string ;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+description?: string  | null;
+@ApiProperty({
+  type: 'integer',
+  format: 'int32',
+  default: 0,
+  required: false,
+  nullable: true,
+})
+sort_order?: number  | null;
 }

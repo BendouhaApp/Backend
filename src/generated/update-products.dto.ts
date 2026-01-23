@@ -1,73 +1,151 @@
 
-import {Prisma} from '@prisma/client'
+import {Prisma} from '../../generated/prisma'
 import {ApiProperty} from '@nestjs/swagger'
 
 
 
 
 export class UpdateProductsDto {
-  name?: string;
-slug?: string;
-description?: string;
-short_description?: string;
-sku?: string;
-@ApiProperty({
-  type: `number`,
-  format: `double`,
+  @ApiProperty({
+  type: 'string',
+  required: false,
 })
-price?: Prisma.Decimal;
+name?: string ;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  required: false,
 })
-cost_price?: Prisma.Decimal;
+slug?: string ;
 @ApiProperty({
-  type: `integer`,
-  format: `int32`,
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+description?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+short_description?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+})
+sku?: string ;
+@ApiProperty({
+  type: 'string',
+  format: 'Decimal.js',
+  required: false,
+})
+price?: Prisma.Decimal ;
+@ApiProperty({
+  type: 'string',
+  format: 'Decimal.js',
+  required: false,
+  nullable: true,
+})
+cost_price?: Prisma.Decimal  | null;
+@ApiProperty({
+  type: 'integer',
+  format: 'int32',
   default: 0,
+  required: false,
+  nullable: true,
 })
-stock_quantity?: number;
+stock_quantity?: number  | null;
 @ApiProperty({
-  type: `integer`,
-  format: `int32`,
+  type: 'integer',
+  format: 'int32',
   default: 10,
+  required: false,
+  nullable: true,
 })
-low_stock_threshold?: number;
-brand?: string;
-model_number?: string;
-voltage?: string;
-wattage?: string;
-power_consumption?: string;
+low_stock_threshold?: number  | null;
 @ApiProperty({
-  type: `integer`,
-  format: `int32`,
+  type: 'string',
+  required: false,
+  nullable: true,
 })
-warranty_months?: number;
-image_url?: string;
+brand?: string  | null;
 @ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+model_number?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+voltage?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+wattage?: string  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+power_consumption?: string  | null;
+@ApiProperty({
+  type: 'integer',
+  format: 'int32',
+  required: false,
+  nullable: true,
+})
+warranty_months?: number  | null;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+image_url?: string  | null;
+@ApiProperty({
+  type: 'boolean',
   default: true,
+  required: false,
+  nullable: true,
 })
-is_active?: boolean;
+is_active?: boolean  | null;
 @ApiProperty({
+  type: 'boolean',
   default: false,
+  required: false,
+  nullable: true,
 })
-is_featured?: boolean;
+is_featured?: boolean  | null;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  format: 'Decimal.js',
+  required: false,
+  nullable: true,
 })
-weight?: Prisma.Decimal;
-dimensions?: string;
+weight?: Prisma.Decimal  | null;
 @ApiProperty({
-  type: `string`,
-  format: `date-time`,
-  default: `now`,
+  type: 'string',
+  required: false,
+  nullable: true,
 })
-created_at?: Date;
+dimensions?: string  | null;
 @ApiProperty({
-  type: `string`,
-  format: `date-time`,
-  default: `now`,
+  type: 'string',
+  format: 'date-time',
+  default: new Date().toISOString(),
+  required: false,
+  nullable: true,
 })
-updated_at?: Date;
+created_at?: Date  | null;
+@ApiProperty({
+  type: 'string',
+  format: 'date-time',
+  default: new Date().toISOString(),
+  required: false,
+  nullable: true,
+})
+updated_at?: Date  | null;
 }

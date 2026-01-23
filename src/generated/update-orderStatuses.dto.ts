@@ -5,12 +5,23 @@ import {ApiProperty} from '@nestjs/swagger'
 
 
 export class UpdateOrderStatusesDto {
-  name?: string;
-description?: string;
-@ApiProperty({
-  type: `integer`,
-  format: `int32`,
-  default: 0,
+  @ApiProperty({
+  type: 'string',
+  required: false,
 })
-sort_order?: number;
+name?: string ;
+@ApiProperty({
+  type: 'string',
+  required: false,
+  nullable: true,
+})
+description?: string  | null;
+@ApiProperty({
+  type: 'integer',
+  format: 'int32',
+  default: 0,
+  required: false,
+  nullable: true,
+})
+sort_order?: number  | null;
 }

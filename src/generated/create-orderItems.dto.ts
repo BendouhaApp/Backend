@@ -1,32 +1,42 @@
 
-import {Prisma} from '@prisma/client'
-import {ApiProperty,getSchemaPath} from '@nestjs/swagger'
+import {Prisma} from '../../generated/prisma'
+import {ApiProperty} from '@nestjs/swagger'
 
 
 
 
 export class CreateOrderItemsDto {
-  product_name: string;
-product_sku?: string;
-@ApiProperty({
-  type: `integer`,
-  format: `int32`,
+  @ApiProperty({
+  type: 'string',
 })
-quantity: number;
+product_name: string ;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'string',
+  required: false,
+  nullable: true,
 })
-unit_price: Prisma.Decimal;
+product_sku?: string  | null;
 @ApiProperty({
-  type: `number`,
-  format: `double`,
+  type: 'integer',
+  format: 'int32',
 })
-total_price: Prisma.Decimal;
+quantity: number ;
 @ApiProperty({
-  type: `string`,
-  format: `date-time`,
-  default: `now`,
+  type: 'string',
+  format: 'Decimal.js',
 })
-created_at?: Date;
+unit_price: Prisma.Decimal ;
+@ApiProperty({
+  type: 'string',
+  format: 'Decimal.js',
+})
+total_price: Prisma.Decimal ;
+@ApiProperty({
+  type: 'string',
+  format: 'date-time',
+  default: new Date().toISOString(),
+  required: false,
+  nullable: true,
+})
+created_at?: Date  | null;
 }

@@ -8,7 +8,7 @@ export class OrderItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrderItemDto) {
-    const order = await this.prisma.orders.findUnique({
+    const order = await this.prisma.orderItem.findUnique({
       where: { id: dto.order_id },
     });
 
@@ -20,7 +20,7 @@ export class OrderItemsService {
     let productSku: string | null = null;
 
     if (dto.product_id) {
-      const product = await this.prisma.products.findUnique({
+      const product = await this.prisma.orderItem.findUnique({
         where: { id: dto.product_id },
       });
 
@@ -34,7 +34,7 @@ export class OrderItemsService {
 
     const totalPrice = dto.quantity * dto.unit_price;
 
-    const orderItem = await this.prisma.order_items.create({
+    const orderItem = await this.prisma.orderItem.create({
       data: {
         order_id: dto.order_id,
         product_id: dto.product_id,
@@ -53,7 +53,7 @@ export class OrderItemsService {
   }
 
   async findAll() {
-    const items = await this.prisma.order_items.findMany({
+    const items = await this.prisma.orderItem.findMany({
       include: {
         products: true,
         orders: true,

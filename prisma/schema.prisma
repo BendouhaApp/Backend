@@ -14,12 +14,42 @@ datasource db {
 model Admin {
   id            Int      @id @default(autoincrement())
   username      String   @unique
-  email         String   @unique
   password_hash String
   is_active     Boolean  @default(true)
   created_at    DateTime @default(now())
 
   orders Order[]
+  logs AdminLog[]
+}
+
+enum AdminAction {
+  CREATE
+  UPDATE
+  DELETE
+  CONFIRM
+  CANCEL
+}
+
+enum AdminEntity {
+  PRODUCT
+  CATEGORY
+  ORDER
+}
+
+model AdminLog {
+  id          Int         @id @default(autoincrement())
+  admin_id    Int
+  action      AdminAction
+  entity      AdminEntity
+  entity_id   Int
+  description String?
+  metadata    Json?
+  created_at  DateTime    @default(now())
+
+  admin Admin @relation(fields: [admin_id], references: [id])
+
+  @@index([admin_id])
+  @@index([entity, entity_id])
 }
 
 /**
@@ -41,6 +71,7 @@ model Category {
   children Category[] @relation("CategoryHierarchy")
 
   products Product[]
+
   @@index([parent_id])
 }
 
@@ -110,16 +141,22 @@ model CartItem {
  * ORDERS
  * =========================
  */
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
 model Order {
-  id             Int      @id @default(autoincrement())
-  order_number   String   @unique
-  customer_name  String
-  customer_phone String
+  id              Int         @id @default(autoincrement())
+  order_number    String      @unique
+  customer_name   String
+  customer_phone  String
   customer_wilaya String
-  total_amount   Decimal  @db.Decimal(10, 2)
-  status         String   @default("PENDING")
-  created_by     Int?
-  created_at     DateTime @default(now())
+  total_amount    Decimal     @db.Decimal(10, 2)
+  status          OrderStatus @default(PENDING)
+  created_by      Int?
+  created_at      DateTime    @default(now())
 
   admin Admin?      @relation(fields: [created_by], references: [id])
   items OrderItem[]

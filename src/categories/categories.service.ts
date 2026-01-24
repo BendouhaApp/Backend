@@ -3,12 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import slugify from 'slugify';
+import { AdminsLogsService } from '../admins-logs/admins-logs.service';
+import { AdminAction, AdminEntity } from '@prisma/client';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adminsLogsService: AdminsLogsService,
+  ) {}
 
-  async create(dto: CreateCategoryDto) {
+  async create(dto: CreateCategoryDto, adminId: number) {
     const slug = slugify(dto.name, { lower: true });
 
     if (dto.parent_id) {
@@ -33,6 +38,14 @@ export class CategoriesService {
         parent_id: dto.parent_id,
         is_active: dto.is_active ?? true,
       },
+    });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.CREATE,
+      entity: AdminEntity.CATEGORY,
+      entityId: category.id,
+      description: 'Category created',
     });
 
     return {
@@ -87,7 +100,7 @@ export class CategoriesService {
     };
   }
 
-  async update(id: number, dto: UpdateCategoryDto) {
+  async update(id: number, dto: UpdateCategoryDto, adminId: number) {
     const existing = await this.prisma.category.findUnique({
       where: { id },
     });
@@ -132,13 +145,21 @@ export class CategoriesService {
       },
     });
 
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.UPDATE,
+      entity: AdminEntity.CATEGORY,
+      entityId: category.id,
+      description: 'Category updated',
+    });
+
     return {
       message: `Category #${id} updated successfully`,
       data: category,
     };
   }
 
-  async remove(id: number) {
+  async remove(id: number, adminId: number) {
     const existing = await this.prisma.category.findUnique({
       where: { id },
       include: {
@@ -164,6 +185,14 @@ export class CategoriesService {
         is_active: false,
         updated_at: new Date(),
       },
+    });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.DELETE,
+      entity: AdminEntity.CATEGORY,
+      entityId: id,
+      description: 'Category disabled',
     });
 
     return {

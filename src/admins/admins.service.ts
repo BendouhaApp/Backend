@@ -1,6 +1,5 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable , NotFoundException , ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateAdminDto } from './dto/create-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import * as bcrypt from 'bcrypt';
 
@@ -8,45 +7,11 @@ import * as bcrypt from 'bcrypt';
 export class AdminsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createAdminDto: CreateAdminDto) {
-    const existingAdmin = await this.prisma.admin.findFirst({
-      where: {
-        OR: [
-          { username: createAdminDto.username },
-          { email: createAdminDto.email },
-        ],
-      },
-    });
-
-    if (existingAdmin) {
-      throw new ConflictException('Username or email already exists');
-    }
-
-    const password_hash = await bcrypt.hash(createAdminDto.password, 10);
-
-    const { password, ...adminData } = createAdminDto;
-
-    return this.prisma.admin.create({
-      data: {
-        ...adminData,
-        password_hash,
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        is_active: true,
-        created_at: true,
-      },
-    });
-  }
-
   async findAll() {
     return this.prisma.admin.findMany({
       select: {
         id: true,
         username: true,
-        email: true,
         is_active: true,
         created_at: true,
       },
@@ -59,7 +24,6 @@ export class AdminsService {
       select: {
         id: true,
         username: true,
-        email: true,
         is_active: true,
         created_at: true,
       },
@@ -75,30 +39,28 @@ export class AdminsService {
   async update(id: number, updateAdminDto: UpdateAdminDto) {
     await this.findOne(id);
 
-    if (updateAdminDto.username || updateAdminDto.email) {
+    if (updateAdminDto.username) {
       const existingAdmin = await this.prisma.admin.findFirst({
         where: {
           AND: [
             { id: { not: id } },
-            {
-              OR: [
-                updateAdminDto.username ? { username: updateAdminDto.username } : {},
-                updateAdminDto.email ? { email: updateAdminDto.email } : {},
-              ],
-            },
+            { username: updateAdminDto.username },
           ],
         },
       });
 
       if (existingAdmin) {
-        throw new ConflictException('Username or email already exists');
+        throw new ConflictException('Username already exists');
       }
     }
 
     const updateData: any = { ...updateAdminDto };
 
     if (updateAdminDto.password) {
-      updateData.password_hash = await bcrypt.hash(updateAdminDto.password, 10);
+      updateData.password_hash = await bcrypt.hash(
+        updateAdminDto.password,
+        10,
+      );
       delete updateData.password;
     }
 
@@ -108,7 +70,6 @@ export class AdminsService {
       select: {
         id: true,
         username: true,
-        email: true,
         is_active: true,
         created_at: true,
       },
@@ -123,7 +84,6 @@ export class AdminsService {
       select: {
         id: true,
         username: true,
-        email: true,
       },
     });
   }

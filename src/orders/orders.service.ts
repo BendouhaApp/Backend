@@ -1,16 +1,16 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException , BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, AdminAction, AdminEntity } from '@prisma/client';
+import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adminsLogsService: AdminsLogsService,
+  ) {}
 
   async create(cart_id: number, dto: CreateOrderDto, admin_id?: number) {
     const cart = await this.prisma.cart.findUnique({
@@ -30,7 +30,6 @@ export class OrdersService {
       (sum, item) => sum.add(item.total_price),
       new Prisma.Decimal(0),
     );
-
 
     const order = await this.prisma.order.create({
       data: {
@@ -95,7 +94,7 @@ export class OrdersService {
     };
   }
 
-  async update(id: number, dto: UpdateOrderDto) {
+  async update(id: number, dto: UpdateOrderDto, adminId: number) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
     });
@@ -111,13 +110,26 @@ export class OrdersService {
       },
     });
 
+    await this.adminsLogsService.log({
+      adminId,
+      action:
+        dto.status === 'CONFIRMED'
+          ? AdminAction.CONFIRM
+          : dto.status === 'CANCELLED'
+          ? AdminAction.CANCEL
+          : AdminAction.UPDATE,
+      entity: AdminEntity.ORDER,
+      entityId: id,
+      description: `Order status changed to ${dto.status}`,
+    });
+
     return {
       message: `Order #${id} updated successfully`,
       data: order,
     };
   }
 
-  async remove(id: number) {
+  async remove(id: number, adminId: number) {
     const existing = await this.prisma.order.findUnique({
       where: { id },
     });
@@ -128,6 +140,14 @@ export class OrdersService {
 
     const order = await this.prisma.order.delete({
       where: { id },
+    });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.DELETE,
+      entity: AdminEntity.ORDER,
+      entityId: id,
+      description: 'Order deleted',
     });
 
     return {

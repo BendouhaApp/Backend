@@ -8,9 +8,6 @@ export class AdminResponseDto {
   @ApiProperty({ example: 'admin_user', description: 'Admin username' })
   username: string;
 
-  @ApiProperty({ example: 'admin@bendouha.com', description: 'Admin email' })
-  email: string;
-
   @Exclude()
   password_hash: string;
 

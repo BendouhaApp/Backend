@@ -114,7 +114,8 @@ model Order {
   id             Int      @id @default(autoincrement())
   order_number   String   @unique
   customer_name  String
-  customer_email String
+  customer_phone String
+  customer_wilaya String
   total_amount   Decimal  @db.Decimal(10, 2)
   status         String   @default("PENDING")
   created_by     Int?

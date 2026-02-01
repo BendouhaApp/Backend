@@ -1,16 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsInt, IsNotEmpty, IsBoolean, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsString, IsOptional, IsNotEmpty, IsBoolean } from 'class-validator';
 
 export class CreateCategoryDto {
-
   @ApiProperty({
     example: 'Wall lamp',
     description: 'Category name',
   })
   @IsString()
   @IsNotEmpty()
-  name: string;
+  category_name: string;
 
   @ApiPropertyOptional({
     example: 'Wall lamps for home',
@@ -18,18 +16,15 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  description?: string;
+  category_description?: string;
 
   @ApiPropertyOptional({
-    example: 1,
+    example: 'uuid-parent-category-id',
     description: 'Parent category ID',
   })
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  parent_id?: number;
+  @IsString()
+  parent_id?: string;
 
   @ApiPropertyOptional({
     example: true,
@@ -38,6 +33,5 @@ export class CreateCategoryDto {
   })
   @IsOptional()
   @IsBoolean()
-  @Type(() => Boolean)
-  is_active?: boolean;
+  active?: boolean;
 }

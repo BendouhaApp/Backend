@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCartItemsDto } from './dto/create-cart-items.dto';
@@ -11,8 +10,8 @@ import { UpdateCartItemsDto } from './dto/update-cart-items.dto';
 export class CartItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async addToCart(cart_id: number, dto: CreateCartItemsDto) {
-    const product = await this.prisma.product.findUnique({
+  async addToCart(card_id: string, dto: CreateCartItemsDto) {
+    const product = await this.prisma.products.findUnique({
       where: { id: dto.product_id },
     });
 
@@ -20,42 +19,43 @@ export class CartItemsService {
       throw new NotFoundException('Product not found');
     }
 
-    const existing = await this.prisma.cartItem.findUnique({
+    const existing = await this.prisma.card_items.findFirst({
       where: {
-        cart_id_product_id: {
-          cart_id,
-          product_id: dto.product_id,
-        },
+        card_id,
+        product_id: dto.product_id,
       },
     });
 
     if (existing) {
-      return this.prisma.cartItem.update({
+      const updated = await this.prisma.card_items.update({
         where: { id: existing.id },
         data: {
-          quantity: existing.quantity + dto.quantity,
-          total_price: product.price.mul(existing.quantity + dto.quantity),
+          quantity: (existing.quantity ?? 1) + dto.quantity,
         },
       });
+
+      return {
+        message: 'Cart item updated',
+        data: updated,
+      };
     }
 
-    return this.prisma.cartItem.create({
+    const item = await this.prisma.card_items.create({
       data: {
-        cart_id,
+        card_id,
         product_id: dto.product_id,
         quantity: dto.quantity,
-        unit_price: product.price,
-        total_price: product.price.mul(dto.quantity),
       },
     });
+
+    return {
+      message: 'Item added to cart',
+      data: item,
+    };
   }
 
-  async updateItem(id: number, dto: UpdateCartItemsDto) {
-    if (dto.quantity === undefined) {
-      throw new BadRequestException('Quantity is required');
-    }
-
-    const item = await this.prisma.cartItem.findUnique({
+  async updateItem(id: string, dto: UpdateCartItemsDto) {
+    const item = await this.prisma.card_items.findUnique({
       where: { id },
     });
 
@@ -63,17 +63,21 @@ export class CartItemsService {
       throw new NotFoundException('Cart item not found');
     }
 
-    return this.prisma.cartItem.update({
+    const updated = await this.prisma.card_items.update({
       where: { id },
       data: {
         quantity: dto.quantity,
-        total_price: item.unit_price.mul(dto.quantity),
       },
     });
+
+    return {
+      message: 'Cart item updated',
+      data: updated,
+    };
   }
 
-  async removeItem(id: number) {
-    const item = await this.prisma.cartItem.findUnique({
+  async removeItem(id: string) {
+    const item = await this.prisma.card_items.findUnique({
       where: { id },
     });
 
@@ -81,8 +85,12 @@ export class CartItemsService {
       throw new NotFoundException('Cart item not found');
     }
 
-    return this.prisma.cartItem.delete({
+    await this.prisma.card_items.delete({
       where: { id },
     });
+
+    return {
+      message: 'Cart item removed',
+    };
   }
 }

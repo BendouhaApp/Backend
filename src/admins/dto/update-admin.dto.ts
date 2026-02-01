@@ -1,20 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsBoolean, IsOptional, MinLength } from 'class-validator';
+import { IsString, IsBoolean, IsOptional, MinLength, IsEmail } from 'class-validator';
 
 export class UpdateAdminDto {
   @ApiPropertyOptional({
-    example: 'admin_user',
-    description: 'Admin username',
-    minLength: 3,
+    example: 'admin@company.com',
   })
   @IsOptional()
-  @IsString()
-  @MinLength(3)
-  username?: string;
+  @IsEmail()
+  email?: string;
 
   @ApiPropertyOptional({
     example: 'NewSecurePassword123!',
-    description: 'New admin password',
     minLength: 8,
   })
   @IsOptional()
@@ -24,9 +20,8 @@ export class UpdateAdminDto {
 
   @ApiPropertyOptional({
     example: true,
-    description: 'Is admin active',
   })
   @IsOptional()
   @IsBoolean()
-  is_active?: boolean;
+  active?: boolean;
 }

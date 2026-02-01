@@ -1,17 +1,19 @@
 import { Controller, Get, Delete, Query } from '@nestjs/common';
 import { CartService } from './cart.service';
+import { ApiTags } from '@nestjs/swagger';
 
+@ApiTags('Cart')
 @Controller('cart')
 export class CartController {
   constructor(private readonly cartService: CartService) {}
 
   @Get()
-  getCart(@Query('user_id') user_id?: number) {
-    return this.cartService.getCart(user_id);
+  getCart(@Query('customer_id') customer_id?: string) {
+    return this.cartService.getCart(customer_id);
   }
 
   @Delete()
-  clearCart(@Query('user_id') user_id?: number) {
-    return this.cartService.clearCart(user_id);
+  clearCart(@Query('customer_id') customer_id?: string) {
+    return this.cartService.clearCart(customer_id);
   }
 }

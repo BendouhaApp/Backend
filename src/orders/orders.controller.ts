@@ -1,4 +1,15 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, ParseIntPipe , UseGuards , Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -10,7 +21,7 @@ export class OrdersController {
 
   @Post()
   create(
-    @Query('cart_id', ParseIntPipe) cart_id: number,
+    @Query('cart_id') cart_id: string,
     @Body() dto: CreateOrderDto,
   ) {
     return this.ordersService.create(cart_id, dto);
@@ -22,14 +33,14 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
   }
 
   @UseGuards(AdminJwtGuard)
   @Patch(':id')
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() dto: UpdateOrderDto,
     @Req() req: any,
   ) {
@@ -39,10 +50,9 @@ export class OrdersController {
   @UseGuards(AdminJwtGuard)
   @Delete(':id')
   remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Req() req: any,
   ) {
     return this.ordersService.remove(id, req.user.id);
   }
 }
-

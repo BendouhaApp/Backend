@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException , BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { Prisma, AdminAction, AdminEntity } from '@prisma/client';
+import { AdminAction, AdminEntity, Prisma } from '@prisma/client';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 
 @Injectable()
@@ -12,52 +16,45 @@ export class OrdersService {
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
 
-  async create(cart_id: number, dto: CreateOrderDto, admin_id?: number) {
-    const cart = await this.prisma.cart.findUnique({
-      where: { id: cart_id },
+  async create(card_id: string, dto: CreateOrderDto) {
+    const card = await this.prisma.cards.findUnique({
+      where: { id: card_id },
       include: {
-        items: {
-          include: { product: true },
+        card_items: {
+          include: {
+            products: true,
+          },
         },
       },
     });
 
-    if (!cart || cart.items.length === 0) {
+    if (!card || card.card_items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    const totalAmount = cart.items.reduce(
-      (sum, item) => sum.add(item.total_price),
-      new Prisma.Decimal(0),
-    );
+    const orderId = `ORD-${Date.now()}`;
 
-    const order = await this.prisma.order.create({
+    const order = await this.prisma.orders.create({
       data: {
-        order_number: `ORD-${Date.now()}`,
-        customer_name: dto.customer_name,
-        customer_phone: dto.customer_phone,
-        customer_wilaya: dto.customer_wilaya,
-        total_amount: totalAmount,
-        status: 'PENDING',
-        created_by: admin_id,
-        items: {
-          create: cart.items.map((item) => ({
+        id: orderId,
+        customer_id: dto.customer_id,
+        coupon_id: dto.coupon_id,
+        order_status_id: dto.order_status_id,
+        order_items: {
+          create: card.card_items.map((item) => ({
             product_id: item.product_id,
-            product_name: item.product?.name ?? 'Deleted product',
-            product_sku: item.product?.sku ?? null,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            total_price: item.total_price,
+            quantity: item.quantity ?? 1,
+            price: new Prisma.Decimal(item.products?.sale_price ?? 0),
           })),
         },
       },
       include: {
-        items: true,
+        order_items: true,
       },
     });
 
-    await this.prisma.cartItem.deleteMany({
-      where: { cart_id },
+    await this.prisma.card_items.deleteMany({
+      where: { card_id },
     });
 
     return {
@@ -67,9 +64,15 @@ export class OrdersService {
   }
 
   async findAll() {
-    const orders = await this.prisma.order.findMany({
-      include: { items: true },
-      orderBy: { created_at: 'desc' },
+    const orders = await this.prisma.orders.findMany({
+      include: {
+        order_items: true,
+        customers: true,
+        order_statuses: true,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
     });
 
     return {
@@ -78,10 +81,14 @@ export class OrdersService {
     };
   }
 
-  async findOne(id: number) {
-    const order = await this.prisma.order.findUnique({
+  async findOne(id: string) {
+    const order = await this.prisma.orders.findUnique({
       where: { id },
-      include: { items: true },
+      include: {
+        order_items: true,
+        customers: true,
+        order_statuses: true,
+      },
     });
 
     if (!order) {
@@ -89,13 +96,13 @@ export class OrdersService {
     }
 
     return {
-      message: `Order #${id}`,
+      message: 'Order details',
       data: order,
     };
   }
 
-  async update(id: number, dto: UpdateOrderDto, adminId: number) {
-    const existing = await this.prisma.order.findUnique({
+  async update(id: string, dto: UpdateOrderDto, adminId: string) {
+    const existing = await this.prisma.orders.findUnique({
       where: { id },
     });
 
@@ -103,34 +110,30 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    const order = await this.prisma.order.update({
+    const order = await this.prisma.orders.update({
       where: { id },
       data: {
-        status: dto.status,
+        order_status_id: dto.order_status_id,
+        updated_by: adminId,
       },
     });
 
     await this.adminsLogsService.log({
       adminId,
-      action:
-        dto.status === 'CONFIRMED'
-          ? AdminAction.CONFIRM
-          : dto.status === 'CANCELLED'
-          ? AdminAction.CANCEL
-          : AdminAction.UPDATE,
+      action: AdminAction.UPDATE,
       entity: AdminEntity.ORDER,
       entityId: id,
-      description: `Order status changed to ${dto.status}`,
+      description: 'Order status updated',
     });
 
     return {
-      message: `Order #${id} updated successfully`,
+      message: 'Order updated successfully',
       data: order,
     };
   }
 
-  async remove(id: number, adminId: number) {
-    const existing = await this.prisma.order.findUnique({
+  async remove(id: string, adminId: string) {
+    const existing = await this.prisma.orders.findUnique({
       where: { id },
     });
 
@@ -138,7 +141,7 @@ export class OrdersService {
       throw new NotFoundException('Order not found');
     }
 
-    const order = await this.prisma.order.delete({
+    const order = await this.prisma.orders.delete({
       where: { id },
     });
 
@@ -151,7 +154,7 @@ export class OrdersService {
     });
 
     return {
-      message: `Order #${id} deleted successfully`,
+      message: 'Order deleted successfully',
       data: order,
     };
   }

@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe , UseGuards , Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -33,9 +43,9 @@ export class ProductsController {
   @ApiOperation({ summary: 'Find product by id' })
   @ApiParam({
     name: 'id',
-    example: 1,
+    example: 'uuid-v4',
   })
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);
   }
 
@@ -44,10 +54,10 @@ export class ProductsController {
   @ApiOperation({ summary: 'Update product by id' })
   @ApiParam({
     name: 'id',
-    example: 1,
+    example: 'uuid-v4',
   })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
     @Req() req: any,
   ) {
@@ -63,10 +73,10 @@ export class ProductsController {
   @ApiOperation({ summary: 'Delete product by id' })
   @ApiParam({
     name: 'id',
-    example: 1,
+    example: 'uuid-v4',
   })
   remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Req() req: any,
   ) {
     return this.productsService.remove(

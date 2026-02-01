@@ -1,90 +1,130 @@
-import { Injectable , NotFoundException , ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateAdminDto } from './dto/update-admin.dto';
+import { AdminsLogsService } from '../admins-logs/admins-logs.service';
+import { AdminAction, AdminEntity } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AdminsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adminsLogsService: AdminsLogsService,
+  ) {}
 
   async findAll() {
-    return this.prisma.admin.findMany({
+    return this.prisma.staff_accounts.findMany({
       select: {
         id: true,
-        username: true,
-        is_active: true,
+        email: true,
+        active: true,
         created_at: true,
+      },
+      orderBy: {
+        created_at: 'desc',
       },
     });
   }
 
-  async findOne(id: number) {
-    const admin = await this.prisma.admin.findUnique({
+  async findOne(id: string) {
+    const admin = await this.prisma.staff_accounts.findUnique({
       where: { id },
       select: {
         id: true,
-        username: true,
-        is_active: true,
+        email: true,
+        active: true,
         created_at: true,
       },
     });
 
     if (!admin) {
-      throw new NotFoundException(`Admin with ID ${id} not found`);
+      throw new NotFoundException('Admin not found');
     }
 
     return admin;
   }
 
-  async update(id: number, updateAdminDto: UpdateAdminDto) {
+  async update(id: string, dto: UpdateAdminDto, actorAdminId?: string) {
     await this.findOne(id);
 
-    if (updateAdminDto.username) {
-      const existingAdmin = await this.prisma.admin.findFirst({
+    if (dto.email) {
+      const exists = await this.prisma.staff_accounts.findFirst({
         where: {
-          AND: [
-            { id: { not: id } },
-            { username: updateAdminDto.username },
-          ],
+          email: dto.email,
+          NOT: { id },
         },
       });
 
-      if (existingAdmin) {
-        throw new ConflictException('Username already exists');
+      if (exists) {
+        throw new ConflictException('Email already exists');
       }
     }
 
-    const updateData: any = { ...updateAdminDto };
+    const data: {
+      email?: string;
+      active?: boolean;
+      password_hash?: string;
+    } = {};
 
-    if (updateAdminDto.password) {
-      updateData.password_hash = await bcrypt.hash(
-        updateAdminDto.password,
-        10,
-      );
-      delete updateData.password;
+    if (dto.email) data.email = dto.email;
+    if (dto.active !== undefined) data.active = dto.active;
+
+    if (dto.password) {
+      data.password_hash = await bcrypt.hash(dto.password, 10);
     }
 
-    return this.prisma.admin.update({
+    const updatedAdmin = await this.prisma.staff_accounts.update({
       where: { id },
-      data: updateData,
+      data,
       select: {
         id: true,
-        username: true,
-        is_active: true,
+        email: true,
+        active: true,
         created_at: true,
       },
     });
+
+    if (actorAdminId) {
+      await this.adminsLogsService.log({
+        adminId: actorAdminId,
+        action: AdminAction.UPDATE,
+        entity: AdminEntity.ADMIN,
+        entityId: id,
+        description: `Updated admin account`,
+        metadata: {
+          updatedFields: Object.keys(data),
+        },
+      });
+    }
+
+    return updatedAdmin;
   }
 
-  async remove(id: number) {
+  async remove(id: string, actorAdminId?: string) {
     await this.findOne(id);
 
-    return this.prisma.admin.delete({
+    const deletedAdmin = await this.prisma.staff_accounts.delete({
       where: { id },
       select: {
         id: true,
-        username: true,
+        email: true,
       },
     });
+
+    if (actorAdminId) {
+      await this.adminsLogsService.log({
+        adminId: actorAdminId,
+        action: AdminAction.DELETE,
+        entity: AdminEntity.ADMIN,
+        entityId: id,
+        description: `Deleted admin account`,
+      });
+    }
+
+    return deletedAdmin;
   }
 }

@@ -1,9 +1,11 @@
-import { IsString } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class LoginAdminDto {
   @IsString()
-  username: string;
+  @IsNotEmpty()
+  user: string; // can be username but in db schema is email..
 
   @IsString()
+  @IsNotEmpty()
   password: string;
 }

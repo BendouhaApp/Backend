@@ -5,38 +5,54 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CartService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getCart(user_id?: number) {
-    let cart = await this.prisma.cart.findFirst({
-      where: { user_id },
+  async getCart(customer_id?: string) {
+    let card = await this.prisma.cards.findFirst({
+      where: { customer_id },
       include: {
-        items: {
-          include: { product: true },
+        card_items: {
+          include: {
+            products: true,
+          },
         },
       },
     });
 
-    if (!cart) {
-      cart = await this.prisma.cart.create({
-        data: { user_id },
+    if (!card) {
+      card = await this.prisma.cards.create({
+        data: { customer_id },
         include: {
-          items: { include: { product: true } },
+          card_items: {
+            include: {
+              products: true,
+            },
+          },
         },
       });
     }
 
-    return cart;
+    return {
+      message: 'Cart retrieved successfully',
+      data: card,
+    };
   }
 
-  async clearCart(user_id?: number) {
-    const cart = await this.prisma.cart.findFirst({
-      where: { user_id },
+  async clearCart(customer_id?: string) {
+    const card = await this.prisma.cards.findFirst({
+      where: { customer_id },
     });
 
-    if (!cart) return;
+    if (!card) {
+      return {
+        message: 'Cart not found',
+      };
+    }
 
-    await this.prisma.cartItem.deleteMany({
-      where: { cart_id: cart.id },
+    await this.prisma.card_items.deleteMany({
+      where: { card_id: card.id },
     });
+
+    return {
+      message: 'Cart cleared successfully',
+    };
   }
 }
-

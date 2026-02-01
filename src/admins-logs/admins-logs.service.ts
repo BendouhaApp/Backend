@@ -4,17 +4,17 @@ import { AdminAction, AdminEntity } from '@prisma/client';
 
 @Injectable()
 export class AdminsLogsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   async log(params: {
-    adminId: number;
+    adminId: string;        // UUID
     action: AdminAction;
     entity: AdminEntity;
-    entityId: number;
+    entityId: string;      // UUID
     description?: string;
     metadata?: any;
   }) {
-    return this.prisma.adminLog.create({
+    return this.prisma.admins_logs.create({
       data: {
         admin_id: params.adminId,
         action: params.action,
@@ -27,12 +27,12 @@ export class AdminsLogsService {
   }
 
   async findAll() {
-    return this.prisma.adminLog.findMany({
+    return this.prisma.admins_logs.findMany({
       include: {
-        admin: {
+        staff_accounts: {
           select: {
             id: true,
-            username: true,
+            email: true,
           },
         },
       },
@@ -42,14 +42,14 @@ export class AdminsLogsService {
     });
   }
 
-  async findOne(id: number) {
-    return this.prisma.adminLog.findUnique({
+  async findOne(id: string) {
+    return this.prisma.admins_logs.findUnique({
       where: { id },
       include: {
-        admin: {
+        staff_accounts: {
           select: {
             id: true,
-            username: true,
+            email: true,
           },
         },
       },

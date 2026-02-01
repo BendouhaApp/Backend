@@ -6,20 +6,533 @@ datasource db {
   provider = "postgresql"
 }
 
-/**
- * =========================
- * ADMINS
- * =========================
- */
-model Admin {
-  id            Int      @id @default(autoincrement())
-  username      String   @unique
-  password_hash String
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now())
+model attribute_values {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  attribute_id             String                     @db.Uuid
+  attribute_value          String                     @db.VarChar(255)
+  color                    String?                    @db.VarChar(50)
+  attributes               attributes                 @relation(fields: [attribute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_attribute_values product_attribute_values[]
 
-  orders Order[]
-  logs AdminLog[]
+  @@index([attribute_id], map: "idx_attribute_values")
+}
+
+model attributes {
+  id                                                   String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  attribute_name                                       String               @db.VarChar(255)
+  created_at                                           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime             @default(now()) @db.Timestamptz(6)
+  created_by                                           String?              @db.Uuid
+  updated_by                                           String?              @db.Uuid
+  attribute_values                                     attribute_values[]
+  staff_accounts_attributes_created_byTostaff_accounts staff_accounts?      @relation("attributes_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_attributes_updated_byTostaff_accounts staff_accounts?      @relation("attributes_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_attributes                                   product_attributes[]
+}
+
+model card_items {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  card_id    String?   @db.Uuid
+  product_id String?   @db.Uuid
+  quantity   Int?      @default(1)
+  cards      cards?    @relation(fields: [card_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model cards {
+  id          String       @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customer_id String?      @db.Uuid
+  card_items  card_items[]
+  customers   customers?   @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_customer_id_card")
+}
+
+model categories {
+  id                                                   String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  parent_id                                            String?              @db.Uuid
+  category_name                                        String               @unique @db.VarChar(255)
+  category_description                                 String?
+  icon                                                 String?
+  image                                                String?
+  placeholder                                          String?
+  active                                               Boolean?             @default(true)
+  created_at                                           DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime             @default(now()) @db.Timestamptz(6)
+  created_by                                           String?              @db.Uuid
+  updated_by                                           String?              @db.Uuid
+  staff_accounts_categories_created_byTostaff_accounts staff_accounts?      @relation("categories_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categories                                           categories?          @relation("categoriesTocategories", fields: [parent_id], references: [id], onUpdate: NoAction)
+  other_categories                                     categories[]         @relation("categoriesTocategories")
+  staff_accounts_categories_updated_byTostaff_accounts staff_accounts?      @relation("categories_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_categories                                   product_categories[]
+}
+
+model countries {
+  id                     Int                      @id @default(autoincrement())
+  iso                    String                   @db.Char(2)
+  name                   String                   @db.VarChar(80)
+  upper_name             String                   @db.VarChar(80)
+  iso3                   String?                  @db.Char(3)
+  num_code               Int?                     @db.SmallInt
+  phone_code             Int
+  shipping_country_zones shipping_country_zones[]
+  suppliers              suppliers[]
+}
+
+model coupons {
+  id                                                String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  code                                              String            @unique @db.VarChar(50)
+  discount_value                                    Decimal?          @db.Decimal
+  discount_type                                     String            @db.VarChar(50)
+  times_used                                        Decimal           @default(0) @db.Decimal
+  max_usage                                         Decimal?          @db.Decimal
+  order_amount_limit                                Decimal?          @db.Decimal
+  coupon_start_date                                 DateTime?         @db.Timestamptz(6)
+  coupon_end_date                                   DateTime?         @db.Timestamptz(6)
+  created_at                                        DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                                        DateTime          @default(now()) @db.Timestamptz(6)
+  created_by                                        String?           @db.Uuid
+  updated_by                                        String?           @db.Uuid
+  staff_accounts_coupons_created_byTostaff_accounts staff_accounts?   @relation("coupons_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_coupons_updated_byTostaff_accounts staff_accounts?   @relation("coupons_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                            orders[]
+  product_coupons                                   product_coupons[]
+
+  @@index([code], map: "idx_code_coupons")
+}
+
+model customer_addresses {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  customer_id   String?    @db.Uuid
+  address_line1 String
+  address_line2 String?
+  phone_number  String     @db.VarChar(255)
+  dial_code     String     @db.VarChar(100)
+  country       String     @db.VarChar(255)
+  postal_code   String     @db.VarChar(255)
+  city          String     @db.VarChar(255)
+  customers     customers? @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model customers {
+  id                 String               @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  first_name         String               @db.VarChar(100)
+  last_name          String               @db.VarChar(100)
+  email              String               @unique
+  password_hash      String
+  active             Boolean?             @default(true)
+  registered_at      DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  cards              cards[]
+  customer_addresses customer_addresses[]
+  orders             orders[]
+
+  @@index([email], map: "idx_customer_email")
+}
+
+/// This table is a partition table and requires additional setup for migrations. Visit https://pris.ly/d/partition-tables for more info.
+model gallery {
+  id              String            @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id      String?           @db.Uuid
+  image           String
+  placeholder     String
+  is_thumbnail    Boolean?          @default(false)
+  created_at      DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime          @default(now()) @db.Timestamptz(6)
+  products        products?         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variant_options variant_options[]
+
+  @@index([product_id, is_thumbnail], map: "idx_image_gallery")
+}
+
+model notifications {
+  id                       String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  account_id               String?         @db.Uuid
+  title                    String?         @db.VarChar(100)
+  content                  String?
+  seen                     Boolean?
+  created_at               DateTime        @default(now()) @db.Timestamptz(6)
+  receive_time             DateTime?       @db.Timestamptz(6)
+  notification_expiry_date DateTime?       @db.Date
+  staff_accounts           staff_accounts? @relation(fields: [account_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model order_items {
+  id         String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id String?   @db.Uuid
+  order_id   String?   @db.VarChar(50)
+  price      Decimal   @db.Decimal
+  quantity   Int
+  orders     orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([order_id], map: "idx_order_id_order_item")
+  @@index([product_id], map: "idx_product_id_order_item")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model order_statuses {
+  id                                                       String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  status_name                                              String          @db.VarChar(255)
+  color                                                    String          @db.VarChar(50)
+  privacy                                                  String          @default("private") @db.VarChar(10)
+  created_at                                               DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime        @default(now()) @db.Timestamptz(6)
+  created_by                                               String?         @db.Uuid
+  updated_by                                               String?         @db.Uuid
+  staff_accounts_order_statuses_created_byTostaff_accounts staff_accounts? @relation("order_statuses_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_order_statuses_updated_byTostaff_accounts staff_accounts? @relation("order_statuses_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  orders                                                   orders[]
+}
+
+model orders {
+  id                            String          @id @db.VarChar(50)
+  coupon_id                     String?         @db.Uuid
+  customer_id                   String?         @db.Uuid
+  order_status_id               String?         @db.Uuid
+  order_approved_at             DateTime?       @db.Timestamptz(6)
+  order_delivered_carrier_date  DateTime?       @db.Timestamptz(6)
+  order_delivered_customer_date DateTime?       @db.Timestamptz(6)
+  created_at                    DateTime        @default(now()) @db.Timestamptz(6)
+  updated_by                    String?         @db.Uuid
+  order_items                   order_items[]
+  coupons                       coupons?        @relation(fields: [coupon_id], references: [id], onUpdate: NoAction)
+  customers                     customers?      @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  order_statuses                order_statuses? @relation(fields: [order_status_id], references: [id], onUpdate: NoAction)
+  staff_accounts                staff_accounts? @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_order_customer_id")
+}
+
+model product_attribute_values {
+  id                   String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_attribute_id String             @db.Uuid
+  attribute_value_id   String             @db.Uuid
+  attribute_values     attribute_values   @relation(fields: [attribute_value_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product_attributes   product_attributes @relation(fields: [product_attribute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variant_values       variant_values[]
+
+  @@index([attribute_value_id], map: "idx_product_attribute_values_attribute_value_id")
+  @@index([product_attribute_id], map: "idx_product_attribute_values_product_attribute_id")
+}
+
+model product_attributes {
+  id                       String                     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id               String                     @db.Uuid
+  attribute_id             String                     @db.Uuid
+  product_attribute_values product_attribute_values[]
+  attributes               attributes                 @relation(fields: [attribute_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products                 products                   @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([product_id, attribute_id], map: "idx_product_attribute_fk")
+}
+
+model product_categories {
+  id          String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id  String     @db.Uuid
+  category_id String     @db.Uuid
+  categories  categories @relation(fields: [category_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products    products   @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([product_id, category_id], map: "idx_product_category")
+}
+
+model product_coupons {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id String   @db.Uuid
+  coupon_id  String   @db.Uuid
+  coupons    coupons  @relation(fields: [coupon_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([product_id, coupon_id], map: "idx_product_id_coupon_id_product_coupons")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_shipping_info {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  product_id       String?   @db.Uuid
+  weight           Decimal   @default(0) @db.Decimal
+  weight_unit      String?   @db.VarChar(10)
+  volume           Decimal   @default(0) @db.Decimal
+  volume_unit      String?   @db.VarChar(10)
+  dimension_width  Decimal   @default(0) @db.Decimal
+  dimension_height Decimal   @default(0) @db.Decimal
+  dimension_depth  Decimal   @default(0) @db.Decimal
+  dimension_unit   String?   @db.VarChar(10)
+  products         products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_product_shipping_info_product_id")
+}
+
+model product_suppliers {
+  product_id  String    @db.Uuid
+  supplier_id String    @db.Uuid
+  products    products  @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  suppliers   suppliers @relation(fields: [supplier_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([product_id, supplier_id])
+  @@index([product_id, supplier_id], map: "idx_product_supplier")
+}
+
+model product_tags {
+  tag_id     String   @db.Uuid
+  product_id String   @db.Uuid
+  products   products @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tags       tags     @relation(fields: [tag_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([tag_id, product_id])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id                                                 String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  slug                                               String                  @unique
+  product_name                                       String                  @db.VarChar(255)
+  sku                                                String?                 @db.VarChar(255)
+  sale_price                                         Decimal                 @default(0) @db.Decimal
+  compare_price                                      Decimal?                @default(0) @db.Decimal
+  buying_price                                       Decimal?                @db.Decimal
+  quantity                                           Int                     @default(0)
+  short_description                                  String                  @db.VarChar(165)
+  product_description                                String
+  product_type                                       String?                 @db.VarChar(64)
+  published                                          Boolean?                @default(false)
+  disable_out_of_stock                               Boolean?                @default(true)
+  note                                               String?
+  created_at                                         DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime                @default(now()) @db.Timestamptz(6)
+  created_by                                         String?                 @db.Uuid
+  updated_by                                         String?                 @db.Uuid
+  card_items                                         card_items[]
+  gallery                                            gallery[]
+  order_items                                        order_items[]
+  product_attributes                                 product_attributes[]
+  product_categories                                 product_categories[]
+  product_coupons                                    product_coupons[]
+  product_shipping_info                              product_shipping_info[]
+  product_suppliers                                  product_suppliers[]
+  product_tags                                       product_tags[]
+  staff_accounts_products_created_byTostaff_accounts staff_accounts?         @relation("products_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_products_updated_byTostaff_accounts staff_accounts?         @relation("products_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  sells                                              sells?
+  variant_options                                    variant_options[]
+  variants                                           variants[]
+
+  @@index([published], map: "idx_product_publish")
+}
+
+model roles {
+  id             Int              @id @default(autoincrement())
+  role_name      String           @db.VarChar(255)
+  privileges     String[]
+  staff_accounts staff_accounts[]
+}
+
+model sells {
+  id         Int       @id @default(autoincrement())
+  product_id String?   @unique @db.Uuid
+  price      Decimal   @db.Decimal
+  quantity   Int
+  products   products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model shipping_country_zones {
+  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  shipping_zone_id Int
+  country_id       Int
+  countries        countries      @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  shipping_zones   shipping_zones @relation(fields: [shipping_zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([country_id], map: "idx_country_id_shipping_country_zones")
+  @@index([shipping_zone_id], map: "idx_shipping_zone_id_shipping_country_zones")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shipping_rates {
+  id               String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  shipping_zone_id Int
+  weight_unit      String?        @db.VarChar(10)
+  min_value        Decimal        @default(0) @db.Decimal
+  max_value        Decimal?       @db.Decimal
+  no_max           Boolean?       @default(true)
+  price            Decimal        @default(0) @db.Decimal
+  shipping_zones   shipping_zones @relation(fields: [shipping_zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model shipping_zones {
+  id                                                       Int                      @id @default(autoincrement())
+  name                                                     String                   @db.VarChar(255)
+  display_name                                             String                   @db.VarChar(255)
+  active                                                   Boolean?                 @default(false)
+  free_shipping                                            Boolean?                 @default(false)
+  rate_type                                                String?                  @db.VarChar(64)
+  created_at                                               DateTime                 @default(now()) @db.Timestamptz(6)
+  updated_at                                               DateTime                 @default(now()) @db.Timestamptz(6)
+  created_by                                               String?                  @db.Uuid
+  updated_by                                               String?                  @db.Uuid
+  shipping_country_zones                                   shipping_country_zones[]
+  shipping_rates                                           shipping_rates[]
+  staff_accounts_shipping_zones_created_byTostaff_accounts staff_accounts?          @relation("shipping_zones_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_shipping_zones_updated_byTostaff_accounts staff_accounts?          @relation("shipping_zones_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model slideshows {
+  id                                                   String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title                                                String?         @db.VarChar(80)
+  destination_url                                      String?
+  image                                                String
+  placeholder                                          String
+  description                                          String?         @db.VarChar(160)
+  btn_label                                            String?         @db.VarChar(50)
+  display_order                                        Int
+  published                                            Boolean?        @default(false)
+  clicks                                               Int             @default(0)
+  styles                                               Json?
+  created_at                                           DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                           DateTime        @default(now()) @db.Timestamptz(6)
+  created_by                                           String?         @db.Uuid
+  updated_by                                           String?         @db.Uuid
+  staff_accounts_slideshows_created_byTostaff_accounts staff_accounts? @relation("slideshows_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_slideshows_updated_byTostaff_accounts staff_accounts? @relation("slideshows_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([published], map: "idx_slideshows_publish")
+}
+
+model staff_accounts {
+  id                                                             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  role_id                                                        Int?
+  first_name                                                     String           @db.VarChar(100)
+  last_name                                                      String           @db.VarChar(100)
+  phone_number                                                   String?          @db.VarChar(100)
+  email                                                          String           @unique @db.VarChar(255)
+  password_hash                                                  String
+  active                                                         Boolean?         @default(true)
+  image                                                          String?
+  placeholder                                                    String?
+  created_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
+  created_by                                                     String?          @db.Uuid
+  updated_by                                                     String?          @db.Uuid
+  attributes_attributes_created_byTostaff_accounts               attributes[]     @relation("attributes_created_byTostaff_accounts")
+  attributes_attributes_updated_byTostaff_accounts               attributes[]     @relation("attributes_updated_byTostaff_accounts")
+  categories_categories_created_byTostaff_accounts               categories[]     @relation("categories_created_byTostaff_accounts")
+  categories_categories_updated_byTostaff_accounts               categories[]     @relation("categories_updated_byTostaff_accounts")
+  coupons_coupons_created_byTostaff_accounts                     coupons[]        @relation("coupons_created_byTostaff_accounts")
+  coupons_coupons_updated_byTostaff_accounts                     coupons[]        @relation("coupons_updated_byTostaff_accounts")
+  notifications                                                  notifications[]
+  order_statuses_order_statuses_created_byTostaff_accounts       order_statuses[] @relation("order_statuses_created_byTostaff_accounts")
+  order_statuses_order_statuses_updated_byTostaff_accounts       order_statuses[] @relation("order_statuses_updated_byTostaff_accounts")
+  orders                                                         orders[]
+  products_products_created_byTostaff_accounts                   products[]       @relation("products_created_byTostaff_accounts")
+  products_products_updated_byTostaff_accounts                   products[]       @relation("products_updated_byTostaff_accounts")
+  shipping_zones_shipping_zones_created_byTostaff_accounts       shipping_zones[] @relation("shipping_zones_created_byTostaff_accounts")
+  shipping_zones_shipping_zones_updated_byTostaff_accounts       shipping_zones[] @relation("shipping_zones_updated_byTostaff_accounts")
+  slideshows_slideshows_created_byTostaff_accounts               slideshows[]     @relation("slideshows_created_byTostaff_accounts")
+  slideshows_slideshows_updated_byTostaff_accounts               slideshows[]     @relation("slideshows_updated_byTostaff_accounts")
+  staff_accounts_staff_accounts_created_byTostaff_accounts       staff_accounts?  @relation("staff_accounts_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_staff_accounts_staff_accounts_created_byTostaff_accounts staff_accounts[] @relation("staff_accounts_created_byTostaff_accounts")
+  roles                                                          roles?           @relation(fields: [role_id], references: [id], onUpdate: NoAction)
+  staff_accounts_staff_accounts_updated_byTostaff_accounts       staff_accounts?  @relation("staff_accounts_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_staff_accounts_staff_accounts_updated_byTostaff_accounts staff_accounts[] @relation("staff_accounts_updated_byTostaff_accounts")
+  suppliers_suppliers_created_byTostaff_accounts                 suppliers[]      @relation("suppliers_created_byTostaff_accounts")
+  suppliers_suppliers_updated_byTostaff_accounts                 suppliers[]      @relation("suppliers_updated_byTostaff_accounts")
+  tags_tags_created_byTostaff_accounts                           tags[]           @relation("tags_created_byTostaff_accounts")
+  tags_tags_updated_byTostaff_accounts                           tags[]           @relation("tags_updated_byTostaff_accounts")
+  adminsLogs                                                     admins_logs[]
+}
+
+model admins_logs {
+  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  admin_id    String      @db.Uuid
+  action      AdminAction
+  entity      AdminEntity
+  entity_id   String
+  description String?
+  metadata    Json?
+  created_at  DateTime    @default(now()) @db.Timestamptz(6)
+
+  staff_accounts staff_accounts @relation(fields: [admin_id], references: [id], onDelete: Cascade)
+
+  @@index([admin_id])
+  @@index([entity, entity_id])
+}
+
+model suppliers {
+  id                                                  String              @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  supplier_name                                       String              @db.VarChar(255)
+  company                                             String?             @db.VarChar(255)
+  phone_number                                        String?             @db.VarChar(255)
+  address_line1                                       String
+  address_line2                                       String?
+  country_id                                          Int
+  city                                                String?             @db.VarChar(255)
+  note                                                String?
+  created_at                                          DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime            @default(now()) @db.Timestamptz(6)
+  created_by                                          String?             @db.Uuid
+  updated_by                                          String?             @db.Uuid
+  product_suppliers                                   product_suppliers[]
+  countries                                           countries           @relation(fields: [country_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_suppliers_created_byTostaff_accounts staff_accounts?     @relation("suppliers_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_suppliers_updated_byTostaff_accounts staff_accounts?     @relation("suppliers_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model tags {
+  id                                             String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tag_name                                       String          @db.VarChar(255)
+  icon                                           String?
+  created_at                                     DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                     DateTime        @default(now()) @db.Timestamptz(6)
+  created_by                                     String?         @db.Uuid
+  updated_by                                     String?         @db.Uuid
+  product_tags                                   product_tags[]
+  staff_accounts_tags_created_byTostaff_accounts staff_accounts? @relation("tags_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  staff_accounts_tags_updated_byTostaff_accounts staff_accounts? @relation("tags_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model variant_options {
+  id            String     @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  title         String
+  image_id      String?    @db.Uuid
+  product_id    String     @db.Uuid
+  sale_price    Decimal    @default(0) @db.Decimal
+  compare_price Decimal?   @default(0) @db.Decimal
+  buying_price  Decimal?   @db.Decimal
+  quantity      Int        @default(0)
+  sku           String?    @db.VarChar(255)
+  active        Boolean?   @default(true)
+  gallery       gallery?   @relation(fields: [image_id], references: [id], onUpdate: NoAction)
+  products      products   @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variants      variants[]
+
+  @@index([product_id], map: "idx_variant_options_product_id")
+}
+
+model variant_values {
+  id                         String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  variant_id                 String                   @db.Uuid
+  product_attribute_value_id String                   @db.Uuid
+  product_attribute_values   product_attribute_values @relation(fields: [product_attribute_value_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variants                   variants                 @relation(fields: [variant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([product_attribute_value_id], map: "idx_product_attribute_value_id_variant_values")
+  @@index([variant_id], map: "idx_variant_id_variant_values")
+}
+
+model variants {
+  id                String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  variant_option    String
+  product_id        String           @db.Uuid
+  variant_option_id String           @db.Uuid
+  variant_values    variant_values[]
+  products          products         @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  variant_options   variant_options  @relation(fields: [variant_option_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_product_id_variants")
+  @@index([variant_option_id], map: "idx_variant_option_id_variants")
 }
 
 enum AdminAction {
@@ -28,155 +541,15 @@ enum AdminAction {
   DELETE
   CONFIRM
   CANCEL
+  LOGIN
 }
 
 enum AdminEntity {
   PRODUCT
   CATEGORY
   ORDER
-}
-
-model AdminLog {
-  id          Int         @id @default(autoincrement())
-  admin_id    Int
-  action      AdminAction
-  entity      AdminEntity
-  entity_id   Int
-  description String?
-  metadata    Json?
-  created_at  DateTime    @default(now())
-
-  admin Admin @relation(fields: [admin_id], references: [id])
-
-  @@index([admin_id])
-  @@index([entity, entity_id])
-}
-
-/**
- * =========================
- * CATEGORIES
- * =========================
- */
-model Category {
-  id          Int      @id @default(autoincrement())
-  name        String
-  slug        String   @unique
-  description String?
-  is_active   Boolean  @default(true)
-  parent_id   Int?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @default(now())
-
-  parent   Category?  @relation("CategoryHierarchy", fields: [parent_id], references: [id])
-  children Category[] @relation("CategoryHierarchy")
-
-  products Product[]
-
-  @@index([parent_id])
-}
-
-/**
- * =========================
- * PRODUCTS
- * =========================
- */
-model Product {
-  id          Int      @id @default(autoincrement())
-  name        String
-  slug        String   @unique
-  description String?
-  sku         String   @unique
-  price       Decimal  @db.Decimal(10, 2)
-  stock       Int      @default(0)
-  is_active   Boolean  @default(true)
-  is_featured Boolean  @default(false)
-  category_id Int?
-  created_at  DateTime @default(now())
-
-  category    Category?   @relation(fields: [category_id], references: [id])
-  cart_items  CartItem[]
-  order_items OrderItem[]
-
-  @@index([is_featured])
-  @@index([category_id])
-}
-
-/**
- * =========================
- * CART
- * =========================
- */
-model Cart {
-  id         Int      @id @default(autoincrement())
-  user_id    Int?
-  created_at DateTime @default(now())
-  updated_at DateTime @default(now())
-
-  items CartItem[]
-}
-
-/**
- * =========================
- * CART ITEMS
- * =========================
- */
-model CartItem {
-  id          Int     @id @default(autoincrement())
-  cart_id     Int
-  product_id  Int
-  quantity    Int     @default(1)
-  unit_price  Decimal @db.Decimal(10, 2)
-  total_price Decimal @db.Decimal(10, 2)
-
-  cart    Cart    @relation(fields: [cart_id], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [product_id], references: [id])
-
-  @@unique([cart_id, product_id])
-  @@index([cart_id])
-  @@index([product_id])
-}
-
-/**
- * =========================
- * ORDERS
- * =========================
- */
-enum OrderStatus {
-  PENDING
-  CONFIRMED
-  CANCELLED
-}
-
-model Order {
-  id              Int         @id @default(autoincrement())
-  order_number    String      @unique
-  customer_name   String
-  customer_phone  String
-  customer_wilaya String
-  total_amount    Decimal     @db.Decimal(10, 2)
-  status          OrderStatus @default(PENDING)
-  created_by      Int?
-  created_at      DateTime    @default(now())
-
-  admin Admin?      @relation(fields: [created_by], references: [id])
-  items OrderItem[]
-}
-
-/**
- * =========================
- * ORDER ITEMS
- * =========================
- */
-model OrderItem {
-  id           Int     @id @default(autoincrement())
-  order_id     Int
-  product_id   Int?
-  product_name String
-  product_sku  String?
-  quantity     Int
-  unit_price   Decimal @db.Decimal(10, 2)
-  total_price  Decimal @db.Decimal(10, 2)
-
-  order   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [product_id], references: [id])
+  COUPON
+  SHIPPING
+  USER
+  ADMIN
 }

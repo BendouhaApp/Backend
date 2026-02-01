@@ -1,23 +1,25 @@
-import { IsString , IsOptional} from 'class-validator';
-import { ApiProperty , ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateOrderDto {
-    @ApiProperty({
-        example: 'Abdou Bendoouha',
-    })
-    @IsString()
-    customer_name: string;
+  @ApiPropertyOptional({
+    example: 'uuid-customer-id',
+  })
+  @IsOptional()
+  @IsString()
+  customer_id?: string;
 
-    @ApiProperty({ example: '+213 551234567' })
-    @IsString()
-    customer_phone: string;
+  @ApiPropertyOptional({
+    example: 'uuid-coupon-id',
+  })
+  @IsOptional()
+  @IsString()
+  coupon_id?: string;
 
-    @ApiProperty({ example: 'Blida' })
-    @IsString()
-    customer_wilaya: string;
-
-    @ApiPropertyOptional({ example: 'PAID' })
-    @IsOptional()
-    @IsString()
-    status?: string;
+  @ApiPropertyOptional({
+    example: 'uuid-order-status-id',
+  })
+  @IsOptional()
+  @IsString()
+  order_status_id?: string;
 }

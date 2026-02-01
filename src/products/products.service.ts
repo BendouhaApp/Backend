@@ -8,15 +8,30 @@ import slugify from 'slugify';
 
 @Injectable()
 export class ProductsService {
-  constructor( private readonly prisma: PrismaService , private readonly adminsLogsService: AdminsLogsService ) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly adminsLogsService: AdminsLogsService,
+  ) {}
 
-  async create(dto: CreateProductDto, adminId: number) {
-    const slug = slugify(dto.name, { lower: true });
+  async create(dto: CreateProductDto, adminId: string) {
+    const slug = slugify(dto.product_name, { lower: true });
 
-    const product = await this.prisma.product.create({
+    const product = await this.prisma.products.create({
       data: {
-        ...dto,
         slug,
+        product_name: dto.product_name,
+        sku: dto.sku,
+        sale_price: dto.sale_price,
+        compare_price: dto.compare_price,
+        buying_price: dto.buying_price,
+        quantity: dto.quantity,
+        short_description: dto.short_description,
+        product_description: dto.product_description,
+        product_type: dto.product_type,
+        published: dto.published,
+        disable_out_of_stock: dto.disable_out_of_stock,
+        note: dto.note,
+        created_by: adminId,
       },
     });
 
@@ -35,7 +50,7 @@ export class ProductsService {
   }
 
   async findAll() {
-    const products = await this.prisma.product.findMany();
+    const products = await this.prisma.products.findMany();
 
     return {
       message: 'List of all products',
@@ -43,8 +58,8 @@ export class ProductsService {
     };
   }
 
-  async findOne(id: number) {
-    const product = await this.prisma.product.findUnique({
+  async findOne(id: string) {
+    const product = await this.prisma.products.findUnique({
       where: { id },
     });
 
@@ -53,13 +68,13 @@ export class ProductsService {
     }
 
     return {
-      message: 'Product with id ' + id,
+      message: 'Product details',
       data: product,
     };
   }
 
-  async update(id: number, updateProductDto: UpdateProductDto, adminId: number) {
-    const existing = await this.prisma.product.findUnique({
+  async update(id: string, dto: UpdateProductDto, adminId: string) {
+    const existing = await this.prisma.products.findUnique({
       where: { id },
     });
 
@@ -67,9 +82,12 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const product = await this.prisma.product.update({
+    const product = await this.prisma.products.update({
       where: { id },
-      data: updateProductDto,
+      data: {
+        ...dto,
+        updated_by: adminId,
+      },
     });
 
     await this.adminsLogsService.log({
@@ -81,13 +99,13 @@ export class ProductsService {
     });
 
     return {
-      message: `Product #${id} updated successfully`,
+      message: 'Product updated successfully',
       data: product,
     };
   }
 
-  async remove(id: number, adminId: number) {
-    const existing = await this.prisma.product.findUnique({
+  async remove(id: string, adminId: string) {
+    const existing = await this.prisma.products.findUnique({
       where: { id },
     });
 
@@ -95,7 +113,7 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const product = await this.prisma.product.delete({
+    const product = await this.prisma.products.delete({
       where: { id },
     });
 
@@ -108,7 +126,7 @@ export class ProductsService {
     });
 
     return {
-      message: `Product #${id} deleted successfully`,
+      message: 'Product deleted successfully',
       data: product,
     };
   }

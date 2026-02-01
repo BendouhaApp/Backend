@@ -1,9 +1,7 @@
-import { IsOptional, IsInt } from 'class-validator';
-import { Type } from 'class-transformer';
+import { IsOptional, IsString } from 'class-validator';
 
 export class CreateCartDto {
   @IsOptional()
-  @IsInt()
-  @Type(() => Number)
-  user_id?: number;
+  @IsString()
+  customer_id?: string;
 }

@@ -1,9 +1,21 @@
-import { Controller , Get , Post , Body , Patch , Param , Delete , ParseIntPipe , UseGuards , Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
+import { ApiTags, ApiParam } from '@nestjs/swagger';
 
+@ApiTags('Categories')
 @Controller('categories')
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
@@ -26,14 +38,22 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  @ApiParam({
+    name: 'id',
+    example: 'uuid-category-id',
+  })
+  findOne(@Param('id') id: string) {
     return this.categoriesService.findOne(id);
   }
 
   @UseGuards(AdminJwtGuard)
   @Patch(':id')
+  @ApiParam({
+    name: 'id',
+    example: 'uuid-category-id',
+  })
   update(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
     @Req() req: any,
   ) {
@@ -46,8 +66,12 @@ export class CategoriesController {
 
   @UseGuards(AdminJwtGuard)
   @Delete(':id')
+  @ApiParam({
+    name: 'id',
+    example: 'uuid-category-id',
+  })
   remove(
-    @Param('id', ParseIntPipe) id: number,
+    @Param('id') id: string,
     @Req() req: any,
   ) {
     return this.categoriesService.remove(
@@ -56,4 +80,3 @@ export class CategoriesController {
     );
   }
 }
-

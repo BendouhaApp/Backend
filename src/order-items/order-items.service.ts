@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
@@ -13,7 +12,7 @@ export class OrderItemsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrderItemDto) {
-    const order = await this.prisma.order.findUnique({
+    const order = await this.prisma.orders.findUnique({
       where: { id: dto.order_id },
     });
 
@@ -21,17 +20,12 @@ export class OrderItemsService {
       throw new NotFoundException('Order not found');
     }
 
-    const total_price = new Prisma.Decimal(dto.unit_price).mul(dto.quantity);
-
-    const item = await this.prisma.orderItem.create({
+    const item = await this.prisma.order_items.create({
       data: {
         order_id: dto.order_id,
         product_id: dto.product_id,
-        product_name: dto.product_name,
-        product_sku: dto.product_sku,
         quantity: dto.quantity,
-        unit_price: new Prisma.Decimal(dto.unit_price),
-        total_price,
+        price: new Prisma.Decimal(dto.price),
       },
     });
 
@@ -41,17 +35,19 @@ export class OrderItemsService {
     };
   }
 
-  async findByOrder(order_id: number) {
+  async findByOrder(order_id: string) {
+    const items = await this.prisma.order_items.findMany({
+      where: { order_id },
+    });
+
     return {
       message: 'Order items list',
-      data: await this.prisma.orderItem.findMany({
-        where: { order_id },
-      }),
+      data: items,
     };
   }
 
-  async update(id: number, dto: UpdateOrderItemDto) {
-    const existing = await this.prisma.orderItem.findUnique({
+  async update(id: string, dto: UpdateOrderItemDto) {
+    const existing = await this.prisma.order_items.findUnique({
       where: { id },
     });
 
@@ -59,30 +55,25 @@ export class OrderItemsService {
       throw new NotFoundException('Order item not found');
     }
 
-    const quantity = dto.quantity ?? existing.quantity;
-    const unitPrice =
-      dto.unit_price !== undefined
-        ? new Prisma.Decimal(dto.unit_price)
-        : existing.unit_price;
-
-    const updated = await this.prisma.orderItem.update({
+    const updated = await this.prisma.order_items.update({
       where: { id },
       data: {
-        ...dto,
-        quantity,
-        unit_price: unitPrice,
-        total_price: unitPrice.mul(quantity),
+        quantity: dto.quantity ?? existing.quantity,
+        price:
+          dto.price !== undefined
+            ? new Prisma.Decimal(dto.price)
+            : existing.price,
       },
     });
 
     return {
-      message: `Order item #${id} updated`,
+      message: 'Order item updated successfully',
       data: updated,
     };
   }
 
-  async remove(id: number) {
-    const existing = await this.prisma.orderItem.findUnique({
+  async remove(id: string) {
+    const existing = await this.prisma.order_items.findUnique({
       where: { id },
     });
 
@@ -90,12 +81,12 @@ export class OrderItemsService {
       throw new NotFoundException('Order item not found');
     }
 
-    await this.prisma.orderItem.delete({
+    await this.prisma.order_items.delete({
       where: { id },
     });
 
     return {
-      message: `Order item #${id} deleted`,
+      message: 'Order item deleted successfully',
     };
   }
 }

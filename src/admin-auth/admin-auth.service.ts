@@ -5,20 +5,25 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AdminAuthService {
-  constructor( private prisma: PrismaService, private jwtService: JwtService ) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
+  ) {}
 
-  async login(username: string, password: string) {
-    const admin = await this.prisma.admin.findUnique({
-      where: { username },
+  async login(user: string, password: string) {
+    // user === email
+    const admin = await this.prisma.staff_accounts.findUnique({
+      where: { email: user },
       select: {
-         id: true,
-         username: true,
-         password_hash: true,
-         is_active: true,
+        id: true,
+        email: true,
+        password_hash: true,
+        active: true,
+        role_id: true,
       },
     });
 
-    if (!admin || !admin.is_active) {
+    if (!admin || admin.active === false) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -32,8 +37,8 @@ export class AdminAuthService {
     }
 
     const payload = {
-      sub: admin.id,
-      username: admin.username,
+      sub: admin.id,        // UUID
+      email: admin.email,
       role: 'ADMIN',
     };
 

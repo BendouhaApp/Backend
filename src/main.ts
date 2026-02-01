@@ -31,4 +31,4 @@ async function bootstrap() {
   console.log(`Application on: http://localhost:${port}`);
 
 }
-bootstrap();
+void bootstrap();

@@ -158,4 +158,15 @@ export class OrdersService {
       data: order,
     };
   }
+
+  async getStatuses() {
+    const statuses = await this.prisma.order_statuses.findMany({
+      orderBy: { created_at: 'asc' },
+    });
+
+    return {
+      message: 'Order statuses',
+      data: statuses,
+    };
+  }
 }

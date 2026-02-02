@@ -3,7 +3,7 @@ import { AdminsLogsService } from './admins-logs.service';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { ApiTags, ApiParam } from '@nestjs/swagger';
 
-@ApiTags('Admins Logs')
+@ApiTags('logs')
 @UseGuards(AdminJwtGuard)
 @Controller('admins-logs')
 export class AdminsLogsController {

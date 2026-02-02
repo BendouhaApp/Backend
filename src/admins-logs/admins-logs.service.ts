@@ -7,10 +7,10 @@ export class AdminsLogsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async log(params: {
-    adminId: string;        // UUID
+    adminId: string;
     action: AdminAction;
     entity: AdminEntity;
-    entityId: string;      // UUID
+    entityId: string;
     description?: string;
     metadata?: any;
   }) {
@@ -32,7 +32,7 @@ export class AdminsLogsService {
         staff_accounts: {
           select: {
             id: true,
-            email: true,
+            username: true,
           },
         },
       },
@@ -49,7 +49,7 @@ export class AdminsLogsService {
         staff_accounts: {
           select: {
             id: true,
-            email: true,
+            username: true,
           },
         },
       },

@@ -4,70 +4,88 @@ import {
   IsNumber,
   IsOptional,
   IsBoolean,
+  IsArray,
+  IsUrl,
+  MaxLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateProductDto {
-  @ApiProperty({ example: 'led-lamp' })
-  @IsString()
-  @IsNotEmpty()
-  slug: string;
-
-  @ApiProperty({ example: 'LED Lamp' })
+  @ApiProperty()
   @IsString()
   @IsNotEmpty()
   product_name: string;
 
-  @ApiProperty({ example: 'LED-001', required: false })
+  @ApiProperty()
   @IsString()
+  @IsNotEmpty()
+  slug: string;
+
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
   sku?: string;
 
-  @ApiProperty({ example: 1200 })
+  @ApiProperty()
+  @Type(() => Number)
   @IsNumber()
   sale_price: number;
 
-  @ApiProperty({ example: 1500, required: false })
-  @IsNumber()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   compare_price?: number;
 
-  @ApiProperty({ example: 1000, required: false })
-  @IsNumber()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   buying_price?: number;
 
-  @ApiProperty({ example: 10 })
+  @ApiProperty()
+  @Type(() => Number)
   @IsNumber()
   quantity: number;
 
-  @ApiProperty({ example: 'Short description here' })
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
+  @MaxLength(165)
   short_description: string;
 
-  @ApiProperty({ example: 'Full product description here' })
+  @ApiProperty()
   @IsString()
-  @IsNotEmpty()
   product_description: string;
 
-  @ApiProperty({ example: 'physical', required: false })
-  @IsString()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
   product_type?: string;
 
-  @ApiProperty({ example: false, required: false })
-  @IsBoolean()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsBoolean()
   published?: boolean;
 
-  @ApiProperty({ example: true, required: false })
-  @IsBoolean()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsBoolean()
   disable_out_of_stock?: boolean;
 
-  @ApiProperty({ example: 'Internal note', required: false })
-  @IsString()
+  @ApiProperty({ required: false })
   @IsOptional()
+  @IsString()
   note?: string;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsUrl()
+  thumbnail?: string;
+
+  @ApiProperty({ type: [String], required: false })
+  @IsOptional()
+  @IsArray()
+  @IsUrl({}, { each: true })
+  images?: string[];
 }

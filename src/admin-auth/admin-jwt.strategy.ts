@@ -4,8 +4,8 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
 type AdminJwtPayload = {
-  sub: string;          // UUID
-  email: string;
+  sub: string;
+  username: string;
   role: 'ADMIN';
 };
 
@@ -26,7 +26,7 @@ export class AdminJwtStrategy extends PassportStrategy(
       where: { id: payload.sub },
       select: {
         id: true,
-        email: true,
+        username: true,
         active: true,
       },
     });
@@ -37,7 +37,7 @@ export class AdminJwtStrategy extends PassportStrategy(
 
     return {
       id: admin.id,
-      email: admin.email,
+      username: admin.username,
       role: 'ADMIN',
     };
   }

@@ -83,7 +83,6 @@ export class CategoriesService {
     const category = await this.prisma.categories.findUnique({
       where: { id },
       include: {
-        categories: true,
         other_categories: {
           where: { active: true },
         },
@@ -101,12 +100,42 @@ export class CategoriesService {
     };
   }
 
+  async findAllAdmin() {
+    const categories = await this.prisma.categories.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+
+    return {
+      message: 'All categories (admin)',
+      data: categories,
+    };
+  }
+
+  async findOneAdmin(id: string) {
+    const category = await this.prisma.categories.findUnique({
+      where: { id },
+      include: {
+        other_categories: true,
+        product_categories: true,
+      },
+    });
+
+    if (!category) {
+      throw new NotFoundException('Category not found');
+    }
+
+    return {
+      message: 'Category details (admin)',
+      data: category,
+    };
+  }
+
   async update(id: string, dto: UpdateCategoryDto, adminId: string) {
     const existing = await this.prisma.categories.findUnique({
       where: { id },
     });
 
-    if (!existing || existing.active === false) {
+    if (!existing) {
       throw new NotFoundException('Category not found');
     }
 
@@ -163,7 +192,7 @@ export class CategoriesService {
       },
     });
 
-    if (!existing || existing.active === false) {
+    if (!existing) {
       throw new NotFoundException('Category not found');
     }
 
@@ -191,6 +220,37 @@ export class CategoriesService {
 
     return {
       message: 'Category disabled successfully',
+      data: category,
+    };
+  }
+
+  async activate(id: string, adminId: string) {
+    const existing = await this.prisma.categories.findUnique({
+      where: { id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Category not found');
+    }
+
+    const category = await this.prisma.categories.update({
+      where: { id },
+      data: {
+        active: true,
+        updated_by: adminId,
+      },
+    });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.UPDATE,
+      entity: AdminEntity.CATEGORY,
+      entityId: id,
+      description: 'Category activated',
+    });
+
+    return {
+      message: 'Category activated successfully',
       data: category,
     };
   }

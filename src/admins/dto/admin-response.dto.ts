@@ -5,8 +5,8 @@ export class AdminResponseDto {
   @ApiProperty({ example: 'uuid', description: 'Admin ID' })
   id: string;
 
-  @ApiProperty({ example: 'admin@company.com', description: 'Admin email' })
-  email: string;
+  @ApiProperty({ example: 'admin', description: 'Admin username' })
+  username: string;
 
   @ApiProperty({ example: true, description: 'Is admin active' })
   active: boolean;

@@ -406,13 +406,13 @@ model staff_accounts {
   first_name                                                     String           @db.VarChar(100)
   last_name                                                      String           @db.VarChar(100)
   phone_number                                                   String?          @db.VarChar(100)
-  email                                                          String           @unique @db.VarChar(255)
+  username                                                       String           @unique @db.VarChar(255)
   password_hash                                                  String
   active                                                         Boolean?         @default(true)
   image                                                          String?
   placeholder                                                    String?
   created_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at DateTime         @default(now()) @db.Timestamptz(6)
   created_by                                                     String?          @db.Uuid
   updated_by                                                     String?          @db.Uuid
   attributes_attributes_created_byTostaff_accounts               attributes[]     @relation("attributes_created_byTostaff_accounts")
@@ -440,7 +440,7 @@ model staff_accounts {
   suppliers_suppliers_updated_byTostaff_accounts                 suppliers[]      @relation("suppliers_updated_byTostaff_accounts")
   tags_tags_created_byTostaff_accounts                           tags[]           @relation("tags_created_byTostaff_accounts")
   tags_tags_updated_byTostaff_accounts                           tags[]           @relation("tags_updated_byTostaff_accounts")
-  adminsLogs                                                     admins_logs[]
+  admins_logs                                                    admins_logs[]
 }
 
 model admins_logs {

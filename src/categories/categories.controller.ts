@@ -21,15 +21,47 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @UseGuards(AdminJwtGuard)
+  @Get('admin')
+  findAllAdmin() {
+    return this.categoriesService.findAllAdmin();
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Get('admin/:id')
+  @ApiParam({ name: 'id', example: 'uuid-category-id' })
+  findOneAdmin(@Param('id') id: string) {
+    return this.categoriesService.findOneAdmin(id);
+  }
+
+  @UseGuards(AdminJwtGuard)
   @Post()
-  create(
-    @Body() createCategoryDto: CreateCategoryDto,
+  create(@Body() dto: CreateCategoryDto, @Req() req: any) {
+    return this.categoriesService.create(dto, req.user.id);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Patch(':id')
+  @ApiParam({ name: 'id', example: 'uuid-category-id' })
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateCategoryDto,
     @Req() req: any,
   ) {
-    return this.categoriesService.create(
-      createCategoryDto,
-      req.user.id,
-    );
+    return this.categoriesService.update(id, dto, req.user.id);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Patch(':id/activate')
+  @ApiParam({ name: 'id', example: 'uuid-category-id' })
+  activate(@Param('id') id: string, @Req() req: any) {
+    return this.categoriesService.activate(id, req.user.id);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Delete(':id')
+  @ApiParam({ name: 'id', example: 'uuid-category-id' })
+  disable(@Param('id') id: string, @Req() req: any) {
+    return this.categoriesService.remove(id, req.user.id);
   }
 
   @Get()
@@ -38,45 +70,8 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  @ApiParam({
-    name: 'id',
-    example: 'uuid-category-id',
-  })
+  @ApiParam({ name: 'id', example: 'uuid-category-id' })
   findOne(@Param('id') id: string) {
     return this.categoriesService.findOne(id);
-  }
-
-  @UseGuards(AdminJwtGuard)
-  @Patch(':id')
-  @ApiParam({
-    name: 'id',
-    example: 'uuid-category-id',
-  })
-  update(
-    @Param('id') id: string,
-    @Body() updateCategoryDto: UpdateCategoryDto,
-    @Req() req: any,
-  ) {
-    return this.categoriesService.update(
-      id,
-      updateCategoryDto,
-      req.user.id,
-    );
-  }
-
-  @UseGuards(AdminJwtGuard)
-  @Delete(':id')
-  @ApiParam({
-    name: 'id',
-    example: 'uuid-category-id',
-  })
-  remove(
-    @Param('id') id: string,
-    @Req() req: any,
-  ) {
-    return this.categoriesService.remove(
-      id,
-      req.user.id,
-    );
   }
 }

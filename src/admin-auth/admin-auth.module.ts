@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminAuthController } from './admin-auth.controller';
-import { PrismaService } from '../prisma/prisma.service';
 import { AdminJwtStrategy } from './admin-jwt.strategy';
-import { PassportModule } from '@nestjs/passport';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Module({
   imports: [

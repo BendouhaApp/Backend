@@ -1,7 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
-import { PrismaService } from '../prisma/prisma.service';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
 import slugify from 'slugify';
@@ -13,8 +16,11 @@ export class ProductsService {
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
 
+  /* =========================
+     CREATE PRODUCT
+  ========================= */
   async create(dto: CreateProductDto, adminId: string) {
-    const slug = slugify(dto.product_name, { lower: true });
+    const slug = slugify(dto.slug || dto.product_name, { lower: true });
 
     const product = await this.prisma.products.create({
       data: {
@@ -28,13 +34,33 @@ export class ProductsService {
         short_description: dto.short_description,
         product_description: dto.product_description,
         product_type: dto.product_type,
-        published: dto.published,
-        disable_out_of_stock: dto.disable_out_of_stock,
+        published: dto.published ?? false,
+        disable_out_of_stock: dto.disable_out_of_stock ?? true,
         note: dto.note,
         created_by: adminId,
+        gallery: {
+          create: [
+            ...(dto.thumbnail
+              ? [
+                  {
+                    image: dto.thumbnail,
+                    placeholder: '',
+                    is_thumbnail: true,
+                  },
+                ]
+              : []),
+            ...(dto.images ?? []).map((img) => ({
+              image: img,
+              placeholder: '',
+              is_thumbnail: false,
+            })),
+          ],
+        },
       },
+      include: { gallery: true },
     });
 
+    // ✅ LOG CREATE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.CREATE,
@@ -43,36 +69,38 @@ export class ProductsService {
       description: 'Product created',
     });
 
-    return {
-      message: 'Product created successfully',
-      data: product,
-    };
+    return product;
   }
 
+  /* =========================
+     FIND ALL (ADMIN)
+  ========================= */
   async findAll() {
-    const products = await this.prisma.products.findMany();
-
-    return {
-      message: 'List of all products',
-      data: products,
-    };
+    return this.prisma.products.findMany({
+      include: { gallery: true },
+      orderBy: { created_at: 'desc' },
+    });
   }
 
+  /* =========================
+     FIND ONE
+  ========================= */
   async findOne(id: string) {
     const product = await this.prisma.products.findUnique({
       where: { id },
+      include: { gallery: true },
     });
 
     if (!product) {
       throw new NotFoundException('Product not found');
     }
 
-    return {
-      message: 'Product details',
-      data: product,
-    };
+    return product;
   }
 
+  /* =========================
+     UPDATE PRODUCT
+  ========================= */
   async update(id: string, dto: UpdateProductDto, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
@@ -82,14 +110,42 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
+    // remove old gallery
+    await this.prisma.gallery.deleteMany({
+      where: { product_id: id },
+    });
+
     const product = await this.prisma.products.update({
       where: { id },
       data: {
         ...dto,
+        slug: dto.slug
+          ? slugify(dto.slug, { lower: true })
+          : existing.slug,
         updated_by: adminId,
+        gallery: {
+          create: [
+            ...(dto.thumbnail
+              ? [
+                  {
+                    image: dto.thumbnail,
+                    placeholder: '',
+                    is_thumbnail: true,
+                  },
+                ]
+              : []),
+            ...(dto.images ?? []).map((img) => ({
+              image: img,
+              placeholder: '',
+              is_thumbnail: false,
+            })),
+          ],
+        },
       },
+      include: { gallery: true },
     });
 
+    // ✅ LOG UPDATE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.UPDATE,
@@ -98,12 +154,12 @@ export class ProductsService {
       description: 'Product updated',
     });
 
-    return {
-      message: 'Product updated successfully',
-      data: product,
-    };
+    return product;
   }
 
+  /* =========================
+     DELETE PRODUCT
+  ========================= */
   async remove(id: string, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
@@ -113,10 +169,11 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const product = await this.prisma.products.delete({
+    await this.prisma.products.delete({
       where: { id },
     });
 
+    // ✅ LOG DELETE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.DELETE,
@@ -125,9 +182,23 @@ export class ProductsService {
       description: 'Product deleted',
     });
 
-    return {
-      message: 'Product deleted successfully',
-      data: product,
-    };
+    return { success: true };
+  }
+
+  /* =========================
+     PUBLIC PRODUCTS
+  ========================= */
+  async findPublic() {
+    return this.prisma.products.findMany({
+      where: {
+        published: true,
+        OR: [
+          { quantity: { gt: 0 } },
+          { disable_out_of_stock: false },
+        ],
+      },
+      include: { gallery: true },
+      orderBy: { created_at: 'desc' },
+    });
   }
 }

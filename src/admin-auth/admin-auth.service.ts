@@ -10,13 +10,12 @@ export class AdminAuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async login(user: string, password: string) {
-    // user === email
+  async login(username: string, password: string) {
     const admin = await this.prisma.staff_accounts.findUnique({
-      where: { email: user },
+      where: { username },
       select: {
         id: true,
-        email: true,
+        username: true,
         password_hash: true,
         active: true,
         role_id: true,
@@ -37,10 +36,19 @@ export class AdminAuthService {
     }
 
     const payload = {
-      sub: admin.id,        // UUID
-      email: admin.email,
+      sub: admin.id,
+      username: admin.username,
       role: 'ADMIN',
     };
+
+    await this.prisma.admins_logs.create({
+      data: {
+        admin_id: admin.id,
+        action: 'LOGIN',
+        entity: 'ADMIN',
+        entity_id: admin.id,
+      },
+    });
 
     return {
       access_token: this.jwtService.sign(payload),

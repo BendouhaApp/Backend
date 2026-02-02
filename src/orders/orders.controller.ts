@@ -27,14 +27,16 @@ export class OrdersController {
     return this.ordersService.create(cart_id, dto);
   }
 
-  @Get()
-  findAll() {
+  @UseGuards(AdminJwtGuard)
+  @Get('admin')
+  findAllAdmin() {
     return this.ordersService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  @UseGuards(AdminJwtGuard)
+  @Get('statuses')
+  getStatuses() {
+    return this.ordersService.getStatuses();
   }
 
   @UseGuards(AdminJwtGuard)
@@ -49,10 +51,12 @@ export class OrdersController {
 
   @UseGuards(AdminJwtGuard)
   @Delete(':id')
-  remove(
-    @Param('id') id: string,
-    @Req() req: any,
-  ) {
+  remove(@Param('id') id: string, @Req() req: any) {
     return this.ordersService.remove(id, req.user.id);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.ordersService.findOne(id);
   }
 }

@@ -20,7 +20,7 @@ export class AdminsService {
     return this.prisma.staff_accounts.findMany({
       select: {
         id: true,
-        email: true,
+        username: true,
         active: true,
         created_at: true,
       },
@@ -35,7 +35,7 @@ export class AdminsService {
       where: { id },
       select: {
         id: true,
-        email: true,
+        username: true,
         active: true,
         created_at: true,
       },
@@ -51,26 +51,26 @@ export class AdminsService {
   async update(id: string, dto: UpdateAdminDto, actorAdminId?: string) {
     await this.findOne(id);
 
-    if (dto.email) {
+    if (dto.username) {
       const exists = await this.prisma.staff_accounts.findFirst({
         where: {
-          email: dto.email,
+          username: dto.username,
           NOT: { id },
         },
       });
 
       if (exists) {
-        throw new ConflictException('Email already exists');
+        throw new ConflictException('Username already exists');
       }
     }
 
     const data: {
-      email?: string;
+      username?: string;
       active?: boolean;
       password_hash?: string;
     } = {};
 
-    if (dto.email) data.email = dto.email;
+    if (dto.username) data.username = dto.username;
     if (dto.active !== undefined) data.active = dto.active;
 
     if (dto.password) {
@@ -82,7 +82,7 @@ export class AdminsService {
       data,
       select: {
         id: true,
-        email: true,
+        username: true,
         active: true,
         created_at: true,
       },
@@ -94,7 +94,7 @@ export class AdminsService {
         action: AdminAction.UPDATE,
         entity: AdminEntity.ADMIN,
         entityId: id,
-        description: `Updated admin account`,
+        description: 'Updated admin account',
         metadata: {
           updatedFields: Object.keys(data),
         },
@@ -111,7 +111,7 @@ export class AdminsService {
       where: { id },
       select: {
         id: true,
-        email: true,
+        username: true,
       },
     });
 
@@ -121,7 +121,7 @@ export class AdminsService {
         action: AdminAction.DELETE,
         entity: AdminEntity.ADMIN,
         entityId: id,
-        description: `Deleted admin account`,
+        description: 'Deleted admin account',
       });
     }
 

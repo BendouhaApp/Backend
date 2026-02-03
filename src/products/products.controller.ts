@@ -2,44 +2,116 @@ import {
   Controller,
   Get,
   Post,
-  Body,
   Patch,
   Param,
   Delete,
   UseGuards,
   Req,
-  ValidationPipe,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { Express } from 'express';
+import * as fs from 'fs';
 
 @ApiTags('Products')
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
+  private static uploadDir = './uploads/products';
+
+  private static multerConfig = {
+    storage: diskStorage({
+      destination: (_req, _file, cb) => {
+        if (!fs.existsSync(ProductsController.uploadDir)) {
+          fs.mkdirSync(ProductsController.uploadDir, { recursive: true });
+        }
+        cb(null, ProductsController.uploadDir);
+      },
+      filename: (_req, file, cb) => {
+        const unique =
+          Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `${unique}${extname(file.originalname)}`);
+      },
+    }),
+    fileFilter: (_req, file, cb) => {
+      if (!file.mimetype.startsWith('image/')) {
+        return cb(new Error('Only image files are allowed'), false);
+      }
+      cb(null, true);
+    },
+  };
+
   @UseGuards(AdminJwtGuard)
   @Post()
-  create(
-    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-    dto: CreateProductDto,
-    @Req() req: any,
-  ) {
-    return this.productsService.create(dto, req.user.id);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'thumbnail', maxCount: 1 },
+        { name: 'images', maxCount: 10 },
+      ],
+      ProductsController.multerConfig,
+    ),
+  )
+  create(@Req() req: any) {
+    const files = req.files as {
+      thumbnail?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    };
+
+    return this.productsService.create(
+      {
+        ...req.body,
+        thumbnail: files?.thumbnail?.[0]
+          ? `/uploads/products/${files.thumbnail[0].filename}`
+          : null,
+        images: files?.images
+          ? files.images.map(
+              (f) => `/uploads/products/${f.filename}`,
+            )
+          : [],
+      },
+      req.user.id,
+    );
   }
 
   @UseGuards(AdminJwtGuard)
   @Patch(':id')
-  update(
-    @Param('id') id: string,
-    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
-    dto: UpdateProductDto,
-    @Req() req: any,
-  ) {
-    return this.productsService.update(id, dto, req.user.id);
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'thumbnail', maxCount: 1 },
+        { name: 'images', maxCount: 10 },
+      ],
+      ProductsController.multerConfig,
+    ),
+  )
+  update(@Param('id') id: string, @Req() req: any) {
+    const files = req.files as {
+      thumbnail?: Express.Multer.File[];
+      images?: Express.Multer.File[];
+    };
+
+    return this.productsService.update(
+      id,
+      {
+        ...req.body,
+        thumbnail: files?.thumbnail?.[0]
+          ? `/uploads/products/${files.thumbnail[0].filename}`
+          : undefined,
+        images: files?.images
+          ? files.images.map(
+              (f) => `/uploads/products/${f.filename}`,
+            )
+          : undefined,
+      },
+      req.user.id,
+    );
   }
 
   @UseGuards(AdminJwtGuard)
@@ -63,4 +135,3 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 }
-

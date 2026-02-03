@@ -186,9 +186,7 @@ export class CategoriesService {
     const existing = await this.prisma.categories.findUnique({
       where: { id },
       include: {
-        other_categories: {
-          where: { active: true },
-        },
+        other_categories: true, // 👈 check ALL children
       },
     });
 
@@ -198,16 +196,12 @@ export class CategoriesService {
 
     if (existing.other_categories.length > 0) {
       throw new BadRequestException(
-        'Cannot disable category with active subcategories',
+        'Cannot delete category with subcategories',
       );
     }
 
-    const category = await this.prisma.categories.update({
+    await this.prisma.categories.delete({
       where: { id },
-      data: {
-        active: false,
-        updated_by: adminId,
-      },
     });
 
     await this.adminsLogsService.log({
@@ -215,12 +209,11 @@ export class CategoriesService {
       action: AdminAction.DELETE,
       entity: AdminEntity.CATEGORY,
       entityId: id,
-      description: 'Category disabled',
+      description: 'Category deleted successfully',
     });
 
     return {
-      message: 'Category disabled successfully',
-      data: category,
+      message: 'Category deleted successfully',
     };
   }
 

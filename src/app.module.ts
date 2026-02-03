@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { AdminsModule } from './admins/admins.module';
 import { CategoriesModule } from './categories/categories.module';
 import { OrdersModule } from './orders/orders.module';
@@ -18,11 +20,17 @@ import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    
-    ThrottlerModule.forRoot([{
-      ttl: 60,
-      limit: 5
-    }]),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
+
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60,
+        limit: 5,
+      },
+    ]),
 
     PrismaModule,
     AdminsModule,

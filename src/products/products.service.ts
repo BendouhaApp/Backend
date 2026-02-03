@@ -3,8 +3,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateProductDto } from './dto/create-product.dto';
-import { UpdateProductDto } from './dto/update-product.dto';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
 import slugify from 'slugify';
@@ -16,28 +14,40 @@ export class ProductsService {
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
 
-  /* =========================
-     CREATE PRODUCT
-  ========================= */
-  async create(dto: CreateProductDto, adminId: string) {
+  async create(dto: any, adminId: string) {
     const slug = slugify(dto.slug || dto.product_name, { lower: true });
 
     const product = await this.prisma.products.create({
       data: {
         slug,
         product_name: dto.product_name,
-        sku: dto.sku,
-        sale_price: dto.sale_price,
-        compare_price: dto.compare_price,
-        buying_price: dto.buying_price,
-        quantity: dto.quantity,
+        sku: dto.sku || null,
+
+        sale_price: Number(dto.sale_price ?? 0),
+        compare_price:
+          dto.compare_price != null
+            ? Number(dto.compare_price)
+            : null,
+        buying_price:
+          dto.buying_price != null
+            ? Number(dto.buying_price)
+            : null,
+
+        quantity: Number(dto.quantity ?? 0),
+
         short_description: dto.short_description,
         product_description: dto.product_description,
-        product_type: dto.product_type,
-        published: dto.published ?? false,
-        disable_out_of_stock: dto.disable_out_of_stock ?? true,
-        note: dto.note,
+        product_type: dto.product_type || null,
+
+        published:
+          dto.published === true || dto.published === 'true',
+        disable_out_of_stock:
+          dto.disable_out_of_stock === true ||
+          dto.disable_out_of_stock === 'true',
+
+        note: dto.note || null,
         created_by: adminId,
+
         gallery: {
           create: [
             ...(dto.thumbnail
@@ -47,7 +57,7 @@ export class ProductsService {
                   is_thumbnail: true,
                 }]
               : []),
-            ...(dto.images ?? []).map((img) => ({
+            ...(dto.images ?? []).map((img: string) => ({
               image: img,
               placeholder: '',
               is_thumbnail: false,
@@ -69,9 +79,6 @@ export class ProductsService {
     return product;
   }
 
-  /* =========================
-     FIND ALL (ADMIN)
-  ========================= */
   async findAll() {
     return this.prisma.products.findMany({
       include: { gallery: true },
@@ -79,9 +86,6 @@ export class ProductsService {
     });
   }
 
-  /* =========================
-     FIND ONE
-  ========================= */
   async findOne(id: string) {
     const product = await this.prisma.products.findUnique({
       where: { id },
@@ -95,10 +99,7 @@ export class ProductsService {
     return product;
   }
 
-  /* =========================
-     UPDATE PRODUCT (FIXED)
-  ========================= */
-  async update(id: string, dto: UpdateProductDto, adminId: string) {
+  async update(id: string, dto: any, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
     });
@@ -107,30 +108,58 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const {
-      images,
-      thumbnail,
-      slug,
-      ...productData
-    } = dto;
+    const { images, thumbnail, slug, ...rest } = dto;
 
     const finalSlug =
       slug && slug !== existing.slug
         ? slugify(slug, { lower: true })
         : undefined;
 
-    const product = await this.prisma.$transaction(async (tx) => {
-      // update product (ONLY product fields)
-      const updated = await tx.products.update({
+    const normalizedData = {
+      ...rest,
+
+      sku: rest.sku || null,
+
+      sale_price:
+        rest.sale_price != null
+          ? Number(rest.sale_price)
+          : undefined,
+
+      compare_price:
+        rest.compare_price != null
+          ? Number(rest.compare_price)
+          : null,
+
+      buying_price:
+        rest.buying_price != null
+          ? Number(rest.buying_price)
+          : null,
+
+      quantity:
+        rest.quantity != null
+          ? Number(rest.quantity)
+          : undefined,
+
+      published:
+        rest.published === true || rest.published === 'true',
+
+      disable_out_of_stock:
+        rest.disable_out_of_stock === true ||
+        rest.disable_out_of_stock === 'true',
+
+      product_type: rest.product_type || null,
+      note: rest.note || null,
+
+      ...(finalSlug ? { slug: finalSlug } : {}),
+      updated_by: adminId,
+    };
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.products.update({
         where: { id },
-        data: {
-          ...productData,
-          ...(finalSlug ? { slug: finalSlug } : {}),
-          updated_by: adminId,
-        },
+        data: normalizedData,
       });
 
-      // sync gallery if provided
       if (images || thumbnail) {
         await tx.gallery.deleteMany({
           where: { product_id: id },
@@ -145,7 +174,7 @@ export class ProductsService {
                 is_thumbnail: true,
               }]
             : []),
-          ...(images ?? []).map((img) => ({
+          ...(images ?? []).map((img: string) => ({
             product_id: id,
             image: img,
             placeholder: '',
@@ -159,8 +188,6 @@ export class ProductsService {
           });
         }
       }
-
-      return updated;
     });
 
     await this.adminsLogsService.log({
@@ -174,9 +201,6 @@ export class ProductsService {
     return this.findOne(id);
   }
 
-  /* =========================
-     DELETE PRODUCT
-  ========================= */
   async remove(id: string, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
@@ -201,9 +225,6 @@ export class ProductsService {
     return { success: true };
   }
 
-  /* =========================
-     PUBLIC PRODUCTS
-  ========================= */
   async findPublic() {
     return this.prisma.products.findMany({
       where: {

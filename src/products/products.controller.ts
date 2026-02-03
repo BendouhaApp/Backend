@@ -8,6 +8,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  ValidationPipe,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -22,7 +23,11 @@ export class ProductsController {
 
   @UseGuards(AdminJwtGuard)
   @Post()
-  create(@Body() dto: CreateProductDto, @Req() req: any) {
+  create(
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+    dto: CreateProductDto,
+    @Req() req: any,
+  ) {
     return this.productsService.create(dto, req.user.id);
   }
 
@@ -30,7 +35,8 @@ export class ProductsController {
   @Patch(':id')
   update(
     @Param('id') id: string,
-    @Body() dto: UpdateProductDto,
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
+    dto: UpdateProductDto,
     @Req() req: any,
   ) {
     return this.productsService.update(id, dto, req.user.id);
@@ -46,7 +52,7 @@ export class ProductsController {
   findPublic() {
     return this.productsService.findPublic();
   }
-  
+
   @Get()
   findAll() {
     return this.productsService.findAll();
@@ -57,3 +63,4 @@ export class ProductsController {
     return this.productsService.findOne(id);
   }
 }
+

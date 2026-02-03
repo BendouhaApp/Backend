@@ -41,13 +41,11 @@ export class ProductsService {
         gallery: {
           create: [
             ...(dto.thumbnail
-              ? [
-                  {
-                    image: dto.thumbnail,
-                    placeholder: '',
-                    is_thumbnail: true,
-                  },
-                ]
+              ? [{
+                  image: dto.thumbnail,
+                  placeholder: '',
+                  is_thumbnail: true,
+                }]
               : []),
             ...(dto.images ?? []).map((img) => ({
               image: img,
@@ -60,7 +58,6 @@ export class ProductsService {
       include: { gallery: true },
     });
 
-    // ✅ LOG CREATE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.CREATE,
@@ -99,7 +96,7 @@ export class ProductsService {
   }
 
   /* =========================
-     UPDATE PRODUCT
+     UPDATE PRODUCT (FIXED)
   ========================= */
   async update(id: string, dto: UpdateProductDto, adminId: string) {
     const existing = await this.prisma.products.findUnique({
@@ -110,42 +107,62 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // remove old gallery
-    await this.prisma.gallery.deleteMany({
-      where: { product_id: id },
-    });
+    const {
+      images,
+      thumbnail,
+      slug,
+      ...productData
+    } = dto;
 
-    const product = await this.prisma.products.update({
-      where: { id },
-      data: {
-        ...dto,
-        slug: dto.slug
-          ? slugify(dto.slug, { lower: true })
-          : existing.slug,
-        updated_by: adminId,
-        gallery: {
-          create: [
-            ...(dto.thumbnail
-              ? [
-                  {
-                    image: dto.thumbnail,
-                    placeholder: '',
-                    is_thumbnail: true,
-                  },
-                ]
-              : []),
-            ...(dto.images ?? []).map((img) => ({
-              image: img,
-              placeholder: '',
-              is_thumbnail: false,
-            })),
-          ],
+    const finalSlug =
+      slug && slug !== existing.slug
+        ? slugify(slug, { lower: true })
+        : undefined;
+
+    const product = await this.prisma.$transaction(async (tx) => {
+      // update product (ONLY product fields)
+      const updated = await tx.products.update({
+        where: { id },
+        data: {
+          ...productData,
+          ...(finalSlug ? { slug: finalSlug } : {}),
+          updated_by: adminId,
         },
-      },
-      include: { gallery: true },
+      });
+
+      // sync gallery if provided
+      if (images || thumbnail) {
+        await tx.gallery.deleteMany({
+          where: { product_id: id },
+        });
+
+        const galleryData = [
+          ...(thumbnail
+            ? [{
+                product_id: id,
+                image: thumbnail,
+                placeholder: '',
+                is_thumbnail: true,
+              }]
+            : []),
+          ...(images ?? []).map((img) => ({
+            product_id: id,
+            image: img,
+            placeholder: '',
+            is_thumbnail: false,
+          })),
+        ];
+
+        if (galleryData.length) {
+          await tx.gallery.createMany({
+            data: galleryData,
+          });
+        }
+      }
+
+      return updated;
     });
 
-    // ✅ LOG UPDATE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.UPDATE,
@@ -154,7 +171,7 @@ export class ProductsService {
       description: 'Product updated',
     });
 
-    return product;
+    return this.findOne(id);
   }
 
   /* =========================
@@ -173,7 +190,6 @@ export class ProductsService {
       where: { id },
     });
 
-    // ✅ LOG DELETE
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.DELETE,

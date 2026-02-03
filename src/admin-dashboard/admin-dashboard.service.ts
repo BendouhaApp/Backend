@@ -10,6 +10,7 @@ export class AdminDashboardService {
       totalOrders,
       pendingOrders,
       totalProducts,
+      totalCategories,
       revenue,
     ] = await Promise.all([
       this.prisma.orders.count(),
@@ -23,6 +24,7 @@ export class AdminDashboardService {
       }),
 
       this.prisma.products.count(),
+      this.prisma.categories.count(),
 
       this.prisma.order_items.aggregate({
         _sum: {
@@ -35,6 +37,7 @@ export class AdminDashboardService {
       totalOrders,
       pendingOrders,
       totalProducts,
+      totalCategories,
       totalRevenue: revenue._sum.price ?? 0,
     }
   }

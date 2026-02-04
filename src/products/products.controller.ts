@@ -34,8 +34,7 @@ export class ProductsController {
         cb(null, ProductsController.uploadDir);
       },
       filename: (_req, file, cb) => {
-        const unique =
-          Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, `${unique}${extname(file.originalname)}`);
       },
     }),
@@ -71,9 +70,7 @@ export class ProductsController {
           ? `/uploads/products/${files.thumbnail[0].filename}`
           : null,
         images: files?.images
-          ? files.images.map(
-              (f) => `/uploads/products/${f.filename}`,
-            )
+          ? files.images.map((f) => `/uploads/products/${f.filename}`)
           : [],
       },
       req.user.id,
@@ -97,17 +94,22 @@ export class ProductsController {
       images?: Express.Multer.File[];
     };
 
+    const removedImages = req.body.removed_images
+      ? Array.isArray(req.body.removed_images)
+        ? req.body.removed_images
+        : [req.body.removed_images]
+      : [];
+
     return this.productsService.update(
       id,
       {
         ...req.body,
+        removed_images: removedImages,
         thumbnail: files?.thumbnail?.[0]
           ? `/uploads/products/${files.thumbnail[0].filename}`
           : undefined,
         images: files?.images
-          ? files.images.map(
-              (f) => `/uploads/products/${f.filename}`,
-            )
+          ? files.images.map((f) => `/uploads/products/${f.filename}`)
           : undefined,
       },
       req.user.id,

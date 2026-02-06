@@ -7,6 +7,7 @@ import {
   Delete,
   UseGuards,
   Req,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
@@ -15,7 +16,7 @@ import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
-import { Express } from 'express';
+import type { Response } from 'express';
 import * as fs from 'fs';
 
 @ApiTags('Products')
@@ -123,8 +124,9 @@ export class ProductsController {
   }
 
   @Get('public')
-  findPublic() {
-    return this.productsService.findPublic();
+  async findPublic(@Res({ passthrough: true }) res: Response) {
+    const products = await this.productsService.findPublic();
+    return { data: products };
   }
 
   @Get()

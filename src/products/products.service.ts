@@ -1,11 +1,10 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
 import slugify from 'slugify';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class ProductsService {
@@ -13,6 +12,17 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
+
+  private deleteFile(filePath?: string | null) {
+    if (!filePath) return;
+
+    const safePath = filePath.replace(/^\/+/, '');
+    const fullPath = path.join(process.cwd(), safePath);
+
+    if (fs.existsSync(fullPath)) {
+      fs.unlinkSync(fullPath);
+    }
+  }
 
   async create(dto: any, adminId: string) {
     const slug = slugify(dto.slug || dto.product_name, { lower: true });
@@ -25,13 +35,9 @@ export class ProductsService {
 
         sale_price: Number(dto.sale_price ?? 0),
         compare_price:
-          dto.compare_price != null
-            ? Number(dto.compare_price)
-            : null,
+          dto.compare_price != null ? Number(dto.compare_price) : null,
         buying_price:
-          dto.buying_price != null
-            ? Number(dto.buying_price)
-            : null,
+          dto.buying_price != null ? Number(dto.buying_price) : null,
 
         quantity: Number(dto.quantity ?? 0),
 
@@ -39,8 +45,7 @@ export class ProductsService {
         product_description: dto.product_description,
         product_type: dto.product_type || null,
 
-        published:
-          dto.published === true || dto.published === 'true',
+        published: dto.published === true || dto.published === 'true',
         disable_out_of_stock:
           dto.disable_out_of_stock === true ||
           dto.disable_out_of_stock === 'true',
@@ -51,11 +56,13 @@ export class ProductsService {
         gallery: {
           create: [
             ...(dto.thumbnail
-              ? [{
-                  image: dto.thumbnail,
-                  placeholder: '',
-                  is_thumbnail: true,
-                }]
+              ? [
+                  {
+                    image: dto.thumbnail,
+                    placeholder: '',
+                    is_thumbnail: true,
+                  },
+                ]
               : []),
             ...(dto.images ?? []).map((img: string) => ({
               image: img,
@@ -80,10 +87,16 @@ export class ProductsService {
   }
 
   async findAll() {
-    return this.prisma.products.findMany({
+    const products = await this.prisma.products.findMany({
       include: { gallery: true },
       orderBy: { created_at: 'desc' },
     });
+
+    return products.map((p) => ({
+      ...p,
+      thumbnail: p.gallery.find((g) => g.is_thumbnail)?.image ?? null,
+      gallery: p.gallery.map((g) => g.image),
+    }));
   }
 
   async findOne(id: string) {
@@ -96,19 +109,27 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    const thumbnail =
+      product.gallery.find((g) => g.is_thumbnail)?.image ?? null;
+
+    return {
+      ...product,
+      thumbnail,
+      gallery: product.gallery.map((g) => g.image),
+    };
   }
 
   async update(id: string, dto: any, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
+      include: { gallery: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Product not found');
     }
 
-    const { images, thumbnail, slug, ...rest } = dto;
+    const { images, thumbnail, removed_images = [], slug, ...rest } = dto;
 
     const finalSlug =
       slug && slug !== existing.slug
@@ -117,39 +138,19 @@ export class ProductsService {
 
     const normalizedData = {
       ...rest,
-
       sku: rest.sku || null,
-
-      sale_price:
-        rest.sale_price != null
-          ? Number(rest.sale_price)
-          : undefined,
-
+      sale_price: rest.sale_price != null ? Number(rest.sale_price) : undefined,
       compare_price:
-        rest.compare_price != null
-          ? Number(rest.compare_price)
-          : null,
-
+        rest.compare_price != null ? Number(rest.compare_price) : null,
       buying_price:
-        rest.buying_price != null
-          ? Number(rest.buying_price)
-          : null,
-
-      quantity:
-        rest.quantity != null
-          ? Number(rest.quantity)
-          : undefined,
-
-      published:
-        rest.published === true || rest.published === 'true',
-
+        rest.buying_price != null ? Number(rest.buying_price) : null,
+      quantity: rest.quantity != null ? Number(rest.quantity) : undefined,
+      published: rest.published === true || rest.published === 'true',
       disable_out_of_stock:
         rest.disable_out_of_stock === true ||
         rest.disable_out_of_stock === 'true',
-
       product_type: rest.product_type || null,
       note: rest.note || null,
-
       ...(finalSlug ? { slug: finalSlug } : {}),
       updated_by: adminId,
     };
@@ -160,33 +161,58 @@ export class ProductsService {
         data: normalizedData,
       });
 
-      if (images || thumbnail) {
-        await tx.gallery.deleteMany({
-          where: { product_id: id },
+      if (removed_images.length) {
+        const toDelete = await tx.gallery.findMany({
+          where: {
+            product_id: id,
+            image: { in: removed_images },
+          },
         });
 
-        const galleryData = [
-          ...(thumbnail
-            ? [{
-                product_id: id,
-                image: thumbnail,
-                placeholder: '',
-                is_thumbnail: true,
-              }]
-            : []),
-          ...(images ?? []).map((img: string) => ({
+        for (const img of toDelete) {
+          this.deleteFile(img.image);
+        }
+
+        await tx.gallery.deleteMany({
+          where: {
+            product_id: id,
+            image: { in: removed_images },
+          },
+        });
+      }
+
+      if (thumbnail) {
+        const oldThumb = await tx.gallery.findFirst({
+          where: {
+            product_id: id,
+            is_thumbnail: true,
+          },
+        });
+
+        if (oldThumb) {
+          this.deleteFile(oldThumb.image);
+          await tx.gallery.delete({ where: { id: oldThumb.id } });
+        }
+
+        await tx.gallery.create({
+          data: {
+            product_id: id,
+            image: thumbnail,
+            placeholder: '',
+            is_thumbnail: true,
+          },
+        });
+      }
+
+      if (images?.length) {
+        await tx.gallery.createMany({
+          data: images.map((img: string) => ({
             product_id: id,
             image: img,
             placeholder: '',
             is_thumbnail: false,
           })),
-        ];
-
-        if (galleryData.length) {
-          await tx.gallery.createMany({
-            data: galleryData,
-          });
-        }
+        });
       }
     });
 
@@ -204,10 +230,15 @@ export class ProductsService {
   async remove(id: string, adminId: string) {
     const existing = await this.prisma.products.findUnique({
       where: { id },
+      include: { gallery: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Product not found');
+    }
+
+    for (const img of existing.gallery) {
+      this.deleteFile(img.image);
     }
 
     await this.prisma.products.delete({
@@ -229,10 +260,7 @@ export class ProductsService {
     return this.prisma.products.findMany({
       where: {
         published: true,
-        OR: [
-          { quantity: { gt: 0 } },
-          { disable_out_of_stock: false },
-        ],
+        OR: [{ quantity: { gt: 0 } }, { disable_out_of_stock: false }],
       },
       include: { gallery: true },
       orderBy: { created_at: 'desc' },

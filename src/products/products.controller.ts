@@ -129,11 +129,19 @@ export class ProductsController {
     return { data: products };
   }
 
+  @Get('public/:id')
+  async findPublicOne(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    const product = await this.productsService.findPublicOne(id);
+    return { data: product };
+  }
+
+  @UseGuards(AdminJwtGuard)
   @Get()
   findAll() {
     return this.productsService.findAll();
   }
 
+  @UseGuards(AdminJwtGuard)
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);

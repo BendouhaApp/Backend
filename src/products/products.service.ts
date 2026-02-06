@@ -256,39 +256,93 @@ export class ProductsService {
     return { success: true };
   }
 
-async findPublic() {
-  const products = await this.prisma.products.findMany({
-    where: {
-      published: true,
-      NOT: {
-        AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
+  async findPublic() {
+    const products = await this.prisma.products.findMany({
+      where: {
+        published: true,
+        NOT: {
+          AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
+        },
       },
-    },
-    include: { gallery: true },
-    orderBy: { created_at: 'desc' },
-  });
+      include: { gallery: true },
+      orderBy: { created_at: 'desc' },
+    });
 
-  const baseUrl = process.env.API_URL || 'http://localhost:3000'; // ← URL de ton backend
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
 
-  return products.map((p) => {
-    const thumbnail = p.gallery.find((g) => g.is_thumbnail)?.image;
-    
+    return products.map((p) => {
+      const thumbnail = p.gallery.find((g) => g.is_thumbnail)?.image;
+      
+      return {
+        id: p.id,
+        name: p.product_name,
+        slug: p.slug,
+        price: parseFloat(p.sale_price.toString()),
+        originalPrice: p.compare_price ? parseFloat(p.compare_price.toString()) : null,
+        category: p.product_type || 'Uncategorized',
+        description: p.short_description,
+        fullDescription: p.product_description,
+        image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
+        thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
+        images: p.gallery.map((g) => `${baseUrl}${g.image}`),
+        gallery: p.gallery.map((g) => `${baseUrl}${g.image}`),
+        inStock: p.quantity > 0,
+        quantity: p.quantity,
+        rating: null,
+        reviewCount: null,
+        badge: null,
+        sizes: null,
+        colors: null,
+        materials: null,
+        dimensions: null,
+        care: null,
+      };
+    });
+  }
+
+  async findPublicOne(id: string) {
+    const product = await this.prisma.products.findUnique({
+      where: { 
+        id,
+        published: true,
+      },
+      include: { gallery: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (product.quantity === 0 && product.disable_out_of_stock) {
+      throw new NotFoundException('Product not available');
+    }
+
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+    const thumbnail = product.gallery.find((g) => g.is_thumbnail)?.image;
+
     return {
-      id: p.id,
-      name: p.product_name,
-      slug: p.slug,
-      price: parseFloat(p.sale_price.toString()),
-      originalPrice: p.compare_price ? parseFloat(p.compare_price.toString()) : null,
-      category: p.product_type || 'Uncategorized',
-      description: p.short_description,
-      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',  // ← Ajoute baseUrl
+      id: product.id,
+      name: product.product_name,
+      slug: product.slug,
+      price: parseFloat(product.sale_price.toString()),
+      originalPrice: product.compare_price ? parseFloat(product.compare_price.toString()) : null,
+      category: product.product_type || 'Uncategorized',
+      description: product.short_description,
+      fullDescription: product.product_description,
+      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
       thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
-      gallery: p.gallery.map((g) => `${baseUrl}${g.image}`),  // ← Ajoute baseUrl
-      inStock: p.quantity > 0,
+      images: product.gallery.map((g) => `${baseUrl}${g.image}`),
+      gallery: product.gallery.map((g) => `${baseUrl}${g.image}`),
+      inStock: product.quantity > 0,
+      quantity: product.quantity,
       rating: null,
       reviewCount: null,
       badge: null,
+      sizes: null,
+      colors: null,
+      materials: null,
+      dimensions: null,
+      care: null,
     };
-  });
-}
+  }
 }

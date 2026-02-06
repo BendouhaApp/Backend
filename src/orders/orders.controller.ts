@@ -20,17 +20,17 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  create(
-    @Query('cart_id') cart_id: string,
-    @Body() dto: CreateOrderDto,
-  ) {
+  create(@Query('cart_id') cart_id: string, @Body() dto: CreateOrderDto) {
     return this.ordersService.create(cart_id, dto);
   }
 
   @UseGuards(AdminJwtGuard)
   @Get('admin')
-  findAllAdmin() {
-    return this.ordersService.findAll();
+  findAllAdmin(@Query('page') page = '1', @Query('limit') limit = '20') {
+    return this.ordersService.findAll({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @UseGuards(AdminJwtGuard)

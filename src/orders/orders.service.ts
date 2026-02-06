@@ -63,8 +63,15 @@ export class OrdersService {
     };
   }
 
-  async findAll() {
-    const orders = await this.prisma.orders.findMany({
+async findAll({ page, limit }: { page: number; limit: number }) {
+  const safePage = Math.max(1, page);
+  const safeLimit = Math.min(50, Math.max(1, limit));
+  const skip = (safePage - 1) * safeLimit;
+
+  const [items, total] = await Promise.all([
+    this.prisma.orders.findMany({
+      skip,
+      take: safeLimit,
       include: {
         order_items: true,
         customers: true,
@@ -73,13 +80,21 @@ export class OrdersService {
       orderBy: {
         created_at: 'desc',
       },
-    });
+    }),
+    this.prisma.orders.count(),
+  ]);
 
-    return {
-      message: 'Orders list',
-      data: orders,
-    };
-  }
+  return {
+    data: items,
+    meta: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages: Math.ceil(total / safeLimit),
+    },
+  };
+}
+
 
   async findOne(id: string) {
     const order = await this.prisma.orders.findUnique({

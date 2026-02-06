@@ -26,20 +26,39 @@ export class AdminsLogsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.admins_logs.findMany({
-      include: {
-        staff_accounts: {
-          select: {
-            id: true,
-            username: true,
+  async findAll({ page, limit }: { page: number; limit: number }) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.admins_logs.findMany({
+        skip,
+        take: safeLimit,
+        include: {
+          staff_accounts: {
+            select: {
+              id: true,
+              username: true,
+            },
           },
         },
+        orderBy: {
+          created_at: 'desc',
+        },
+      }),
+      this.prisma.admins_logs.count(),
+    ]);
+
+    return {
+      data: items,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
       },
-      orderBy: {
-        created_at: 'desc',
-      },
-    });
+    };
   }
 
   async findOne(id: string) {

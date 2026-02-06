@@ -130,15 +130,21 @@ export class ProductsController {
   }
 
   @Get('public/:id')
-  async findPublicOne(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+  async findPublicOne(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const product = await this.productsService.findPublicOne(id);
     return { data: product };
   }
 
   @UseGuards(AdminJwtGuard)
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Req() req: any) {
+    const page = Number(req.query.page ?? 1);
+    const limit = Number(req.query.limit ?? 20);
+
+    return this.productsService.findAll({ page, limit });
   }
 
   @UseGuards(AdminJwtGuard)

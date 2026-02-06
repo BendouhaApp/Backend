@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards , Query } from '@nestjs/common';
 import { AdminsLogsService } from './admins-logs.service';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { ApiTags, ApiParam } from '@nestjs/swagger';
@@ -10,8 +10,14 @@ export class AdminsLogsController {
   constructor(private readonly logsService: AdminsLogsService) {}
 
   @Get()
-  findAll() {
-    return this.logsService.findAll();
+  findAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.logsService.findAll({
+      page: Number(page),
+      limit: Number(limit),
+    });
   }
 
   @Get(':id')

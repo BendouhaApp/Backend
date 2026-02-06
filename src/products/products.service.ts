@@ -86,17 +86,36 @@ export class ProductsService {
     return product;
   }
 
-  async findAll() {
-    const products = await this.prisma.products.findMany({
-      include: { gallery: true },
-      orderBy: { created_at: 'desc' },
-    });
+  async findAll({ page, limit }: { page: number; limit: number }) {
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(50, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
 
-    return products.map((p) => ({
+    const [items, total] = await Promise.all([
+      this.prisma.products.findMany({
+        skip,
+        take: safeLimit,
+        include: { gallery: true },
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.products.count(),
+    ]);
+
+    const data = items.map((p) => ({
       ...p,
       thumbnail: p.gallery.find((g) => g.is_thumbnail)?.image ?? null,
       gallery: p.gallery.map((g) => g.image),
     }));
+
+    return {
+      data,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
+      },
+    };
   }
 
   async findOne(id: string) {
@@ -272,13 +291,15 @@ export class ProductsService {
 
     return products.map((p) => {
       const thumbnail = p.gallery.find((g) => g.is_thumbnail)?.image;
-      
+
       return {
         id: p.id,
         name: p.product_name,
         slug: p.slug,
         price: parseFloat(p.sale_price.toString()),
-        originalPrice: p.compare_price ? parseFloat(p.compare_price.toString()) : null,
+        originalPrice: p.compare_price
+          ? parseFloat(p.compare_price.toString())
+          : null,
         category: p.product_type || 'Uncategorized',
         description: p.short_description,
         fullDescription: p.product_description,
@@ -302,7 +323,7 @@ export class ProductsService {
 
   async findPublicOne(id: string) {
     const product = await this.prisma.products.findUnique({
-      where: { 
+      where: {
         id,
         published: true,
       },
@@ -325,7 +346,9 @@ export class ProductsService {
       name: product.product_name,
       slug: product.slug,
       price: parseFloat(product.sale_price.toString()),
-      originalPrice: product.compare_price ? parseFloat(product.compare_price.toString()) : null,
+      originalPrice: product.compare_price
+        ? parseFloat(product.compare_price.toString())
+        : null,
       category: product.product_type || 'Uncategorized',
       description: product.short_description,
       fullDescription: product.product_description,

@@ -6,12 +6,38 @@ import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   app.setGlobalPrefix('api'); 
   
+  const defaultCorsOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+  ];
+  const envCorsOrigins =
+    process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN ?? '';
+  const allowedOrigins = envCorsOrigins
+    ? envCorsOrigins
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+    : defaultCorsOrigins;
+  const isOriginAllowed = (origin?: string) => {
+    if (!origin) return true; // non-browser clients or same-origin
+    if (allowedOrigins.includes('*')) return true;
+    return allowedOrigins.includes(origin);
+  };
+
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, X-Requested-With, Accept',
   });
 
   const port = process.env.PORT ?? 3000;

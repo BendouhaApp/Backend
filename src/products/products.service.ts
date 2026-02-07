@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
@@ -256,12 +260,18 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    for (const img of existing.gallery) {
-      this.deleteFile(img.image);
-    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const img of existing.gallery) {
+        this.deleteFile(img.image);
+      }
 
-    await this.prisma.products.delete({
-      where: { id },
+      await tx.gallery.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.products.delete({
+        where: { id },
+      });
     });
 
     await this.adminsLogsService.log({
@@ -367,5 +377,65 @@ export class ProductsService {
       dimensions: null,
       care: null,
     };
+  }
+
+  async bulkUpdate(dto: { ids: string[]; published?: boolean }) {
+    if (!dto.ids?.length) {
+      throw new BadRequestException('No product IDs provided');
+    }
+
+    return this.prisma.products.updateMany({
+      where: {
+        id: { in: dto.ids },
+      },
+      data: {
+        ...(dto.published !== undefined && {
+          published: dto.published,
+        }),
+      },
+    });
+  }
+
+  async bulkDelete(ids: string[], adminId?: string) {
+    if (!ids?.length) {
+      throw new BadRequestException('No product IDs provided');
+    }
+
+    const products = await this.prisma.products.findMany({
+      where: { id: { in: ids } },
+      include: { gallery: true },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const product of products) {
+        await tx.card_items.deleteMany({
+          where: { product_id: product.id },
+        });
+
+        for (const img of product.gallery) {
+          this.deleteFile(img.image);
+        }
+
+        await tx.gallery.deleteMany({
+          where: { product_id: product.id },
+        });
+
+        await tx.products.delete({
+          where: { id: product.id },
+        });
+      }
+    });
+
+    for (const product of products) {
+      await this.adminsLogsService.log({
+        adminId: adminId ?? 'system',
+        action: AdminAction.DELETE,
+        entity: AdminEntity.PRODUCT,
+        entityId: product.id,
+        description: 'Product deleted (bulk)',
+      });
+    }
+
+    return { success: true, count: products.length };
   }
 }

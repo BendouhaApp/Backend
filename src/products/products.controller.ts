@@ -9,6 +9,7 @@ import {
   Req,
   Res,
   UseInterceptors,
+  Body,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ApiTags } from '@nestjs/swagger';
@@ -46,6 +47,18 @@ export class ProductsController {
       cb(null, true);
     },
   };
+
+  @UseGuards(AdminJwtGuard)
+  @Patch('bulk')
+  bulkUpdate(@Body() dto: { ids: string[]; published?: boolean }) {
+    return this.productsService.bulkUpdate(dto);
+  }
+
+  @UseGuards(AdminJwtGuard)
+  @Delete('bulk')
+  bulkDelete(@Body() dto: { ids: string[] }, @Req() req: any) {
+    return this.productsService.bulkDelete(dto.ids, req.user.id);
+  }
 
   @UseGuards(AdminJwtGuard)
   @Post()

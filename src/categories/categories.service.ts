@@ -37,6 +37,7 @@ export class CategoriesService {
         category_description: dto.category_description,
         parent_id: dto.parent_id,
         active: dto.active ?? true,
+        image: dto.image ?? null,
         created_by: adminId,
       },
     });
@@ -164,6 +165,7 @@ export class CategoriesService {
         category_description: dto.category_description,
         parent_id: dto.parent_id,
         active: dto.active,
+        image: dto.image,
         updated_by: adminId,
       },
     });
@@ -186,7 +188,7 @@ export class CategoriesService {
     const existing = await this.prisma.categories.findUnique({
       where: { id },
       include: {
-        other_categories: true, // 👈 check ALL children
+        other_categories: true,
       },
     });
 

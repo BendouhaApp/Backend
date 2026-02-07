@@ -14,6 +14,7 @@ import { AdminsLogsModule } from './admins-logs/admins-logs.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
+import { AdminWilayaModule } from './admin-wilaya/admin-wilaya.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
     AdminsLogsModule,
     AdminAuthModule,
     AdminDashboardModule,
+    AdminWilayaModule,
   ],
 })
 export class AppModule {}

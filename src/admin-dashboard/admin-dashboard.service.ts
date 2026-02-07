@@ -18,8 +18,10 @@ export class AdminDashboardService {
       mainCategories,
       subCategories,
       orderItems,
+      totalWilayas,
+      activeWilayas,
+      inactiveWilayas,
     ] = await Promise.all([
-      
       this.prisma.orders.count(),
 
       this.prisma.orders.count({
@@ -66,6 +68,16 @@ export class AdminDashboardService {
           quantity: true,
         },
       }),
+
+      this.prisma.shipping_zones.count(),
+
+      this.prisma.shipping_zones.count({
+        where: { active: true },
+      }),
+
+      this.prisma.shipping_zones.count({
+        where: { active: false },
+      }),
     ]);
 
     const totalRevenue = orderItems.reduce(
@@ -85,6 +97,9 @@ export class AdminDashboardService {
       mainCategories,
       subCategories,
       totalRevenue,
+      totalWilayas,
+      activeWilayas,
+      inactiveWilayas,
     };
   }
 

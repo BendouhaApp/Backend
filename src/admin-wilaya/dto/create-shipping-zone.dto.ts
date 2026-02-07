@@ -30,7 +30,7 @@ export class CreateShippingZoneDto {
   @MaxLength(255)
   @Transform(({ value }) => String(value).trim().toLowerCase())
   @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: "name must be kebab-case (e.g. alger, ain-defla)",
+    message: "name must be lower-case (e.g. alger, ain-defla, oum-el-bouaghi)",
   })
   name!: string;
 

@@ -1,0 +1,31 @@
+{
+  "sourceDir": "C:/Users/dell/Downloads/Bendouha",
+  "defaults": {
+    "published": false,
+    "disable_out_of_stock": true,
+    "quantity": 0
+  },
+  "skuSource": "reference",
+  "parentRules": [
+    { "match": "^suspendu", "parent": "suspendi" },
+    { "match": "track light magn", "parent": "track light magnetique" },
+    { "match": "^track slim", "parent": "track light magnetique" },
+    { "match": "^applique", "parent": "applique" },
+    { "match": "^lustre", "parent": "lustre" },
+    { "match": "^lsutre", "parent": "lustre" },
+    { "match": "^spot", "parent": "spot" },
+    { "match": "spotlighs", "parent": "downlights" },
+    { "match": "dowlights", "parent": "downlights" },
+    { "match": "^downlights", "parent": "downlights" },
+    { "match": "^hublot", "parent": "hublot" },
+    { "match": "^lampe", "parent": "lampe" },
+    { "match": "^led", "parent": "led" },
+    { "match": "^rail", "parent": "rail" },
+    { "match": "^poteau", "parent": "poteau" }
+  ],
+  "fileOverrides": {
+    "rail track light magntique.frp": {
+      "parent": "track light magnetique"
+    }
+  }
+}

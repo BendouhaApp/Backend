@@ -7,6 +7,9 @@ import {
   IsArray,
   IsUrl,
   MaxLength,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -88,4 +91,42 @@ export class CreateProductDto {
   @IsArray()
   @IsUrl({}, { each: true })
   images?: string[];
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(10000)
+  cct: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  lumen: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  cri: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  power: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(180)
+  angle: number;
 }

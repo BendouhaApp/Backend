@@ -57,6 +57,12 @@ export class ProductsService {
         note: dto.note || null,
         created_by: adminId,
 
+        cct: Number(dto.cct ?? 0),
+        lumen: Number(dto.lumen ?? 0),
+        cri: Number(dto.cri ?? 0),
+        power: Number(dto.power ?? 0),
+        angle: Number(dto.angle ?? 0),
+
         gallery: {
           create: [
             ...(dto.thumbnail
@@ -123,8 +129,11 @@ export class ProductsService {
   }
 
   async findOne(id: string) {
-    const product = await this.prisma.products.findUnique({
-      where: { id },
+    const product = await this.prisma.products.findFirst({
+      where: {
+        id,
+        published: true,
+      },
       include: { gallery: true },
     });
 
@@ -176,6 +185,12 @@ export class ProductsService {
       note: rest.note || null,
       ...(finalSlug ? { slug: finalSlug } : {}),
       updated_by: adminId,
+      ...(dto.cct !== undefined && { cct: Number(dto.cct) }),
+      ...(dto.lumen !== undefined && { lumen: Number(dto.lumen) }),
+      ...(dto.cri !== undefined && { cri: Number(dto.cri) }),
+      ...(dto.power !== undefined && { power: Number(dto.power) }),
+      ...(dto.angle !== undefined && { angle: Number(dto.angle) }),
+
     };
 
     await this.prisma.$transaction(async (tx) => {
@@ -285,7 +300,7 @@ export class ProductsService {
     return { success: true };
   }
 
-  async findPublic() {
+  async findPublic() { //for one product details
     const products = await this.prisma.products.findMany({
       where: {
         published: true,
@@ -327,12 +342,18 @@ export class ProductsService {
         materials: null,
         dimensions: null,
         care: null,
+        cct: p.cct,
+        lumen: p.lumen,
+        cri: p.cri,
+        power: p.power ? parseFloat(p.power.toString()) : null,
+        angle: p.angle,
+
       };
     });
   }
 
   async findPublicOne(id: string) {
-    const product = await this.prisma.products.findUnique({
+    const product = await this.prisma.products.findFirst({
       where: {
         id,
         published: true,
@@ -376,6 +397,11 @@ export class ProductsService {
       materials: null,
       dimensions: null,
       care: null,
+      cct: product.cct,
+      lumen: product.lumen,
+      cri: product.cri,
+      power: product.power ? parseFloat(product.power.toString()) : null,
+      angle: product.angle,
     };
   }
 

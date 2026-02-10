@@ -443,14 +443,33 @@ export class ProductsService {
     return { success: true };
   }
 
-  async findPublic() {
+  async findPublic({ categoryId }: { categoryId?: string } = {}) {
     //for one product details
+    const categoryFilterIds: string[] = [];
+    if (categoryId) {
+      categoryFilterIds.push(categoryId);
+      const childCategories = await this.prisma.categories.findMany({
+        where: { parent_id: categoryId, active: true },
+        select: { id: true },
+      });
+      for (const child of childCategories) {
+        categoryFilterIds.push(child.id);
+      }
+    }
+
     const products = await this.prisma.products.findMany({
       where: {
         published: true,
         NOT: {
           AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
         },
+        ...(categoryFilterIds.length > 0 && {
+          product_categories: {
+            some: {
+              category_id: { in: categoryFilterIds },
+            },
+          },
+        }),
       },
       include: {
         gallery: true,

@@ -138,8 +138,8 @@ export class ProductsController {
   }
 
   @Get('public')
-  async findPublic() {
-    const products = await this.productsService.findPublic();
+  async findPublic(@Query('categoryId') categoryId?: string) {
+    const products = await this.productsService.findPublic({ categoryId });
     return { data: products };
   }
 

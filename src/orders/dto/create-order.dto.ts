@@ -1,7 +1,31 @@
-import { IsString, IsOptional } from 'class-validator';
-import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsString, IsOptional, IsNotEmpty, IsInt, IsIn } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class CreateOrderDto {
+  @ApiProperty({
+    example: '+213551234567',
+  })
+  @IsNotEmpty()
+  @IsString()
+  customer_phone: string;
+
+  @ApiProperty({
+    example: 16,
+    description: 'Shipping zone (wilaya) ID',
+  })
+  @Type(() => Number)
+  @IsInt()
+  wilaya_id: number;
+
+  @ApiPropertyOptional({
+    example: 'home',
+    description: 'Delivery type: home or office',
+  })
+  @IsOptional()
+  @IsIn(['home', 'office'])
+  delivery_type?: 'home' | 'office';
+
   @ApiPropertyOptional({
     example: 'uuid-customer-id',
   })

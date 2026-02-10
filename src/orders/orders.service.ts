@@ -17,6 +17,10 @@ export class OrdersService {
   ) {}
 
   async create(card_id: string, dto: CreateOrderDto) {
+    if (!card_id) {
+      throw new BadRequestException('cart_id is required');
+    }
+
     const card = await this.prisma.cards.findUnique({
       where: { id: card_id },
       include: {
@@ -32,6 +36,38 @@ export class OrdersService {
       throw new BadRequestException('Cart is empty');
     }
 
+    const wilaya = await this.prisma.shipping_zones.findUnique({
+      where: { id: dto.wilaya_id },
+    });
+
+    if (!wilaya || wilaya.active === false) {
+      throw new BadRequestException('Wilaya not found');
+    }
+
+    const deliveryType = dto.delivery_type ?? 'home';
+
+    const shippingPrice = (() => {
+      if (wilaya.free_shipping) return 0;
+      if (deliveryType === 'office') {
+        if (!wilaya.office_delivery_enabled) {
+          throw new BadRequestException('Office delivery not available');
+        }
+        return Number(wilaya.office_delivery_price ?? 0);
+      }
+      if (!wilaya.home_delivery_enabled) {
+        throw new BadRequestException('Home delivery not available');
+      }
+      return Number(wilaya.home_delivery_price ?? 0);
+    })();
+
+    const itemsTotal = card.card_items.reduce((sum, item) => {
+      const unitPrice = Number(item.products?.sale_price ?? 0);
+      const qty = item.quantity ?? 1;
+      return sum + unitPrice * qty;
+    }, 0);
+
+    const totalPrice = itemsTotal + shippingPrice;
+
     const orderId = `ORD-${Date.now()}`;
 
     const order = await this.prisma.orders.create({
@@ -40,6 +76,12 @@ export class OrdersService {
         customer_id: dto.customer_id,
         coupon_id: dto.coupon_id,
         order_status_id: dto.order_status_id,
+        customer_phone: dto.customer_phone,
+        customer_wilaya: wilaya.display_name,
+        delivery_type: deliveryType,
+        shipping_zone_id: wilaya.id,
+        shipping_price: new Prisma.Decimal(shippingPrice),
+        total_price: new Prisma.Decimal(totalPrice),
         order_items: {
           create: card.card_items.map((item) => ({
             product_id: item.product_id,
@@ -60,6 +102,11 @@ export class OrdersService {
     return {
       message: 'Order created successfully',
       data: order,
+      pricing: {
+        items_total: itemsTotal,
+        shipping: shippingPrice,
+        total: totalPrice,
+      },
     };
   }
 

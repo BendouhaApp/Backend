@@ -191,6 +191,12 @@ model orders {
   coupon_id                     String?         @db.Uuid
   customer_id                   String?         @db.Uuid
   order_status_id               String?         @db.Uuid
+  customer_phone                String?         @db.VarChar(255)
+  customer_wilaya               String?         @db.VarChar(255)
+  delivery_type                 String?         @db.VarChar(20)
+  shipping_zone_id              Int?
+  shipping_price                Decimal?        @db.Decimal(10, 2)
+  total_price                   Decimal?        @db.Decimal(10, 2)
   order_approved_at             DateTime?       @db.Timestamptz(6)
   order_delivered_carrier_date  DateTime?       @db.Timestamptz(6)
   order_delivered_customer_date DateTime?       @db.Timestamptz(6)

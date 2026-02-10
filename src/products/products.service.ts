@@ -17,6 +17,15 @@ export class ProductsService {
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
 
+  private normalizeCategoryIds(input: unknown): string[] {
+    if (!input) return [];
+    const raw = Array.isArray(input) ? input : [input];
+    const normalized = raw
+      .map((value) => String(value).trim())
+      .filter(Boolean);
+    return Array.from(new Set(normalized));
+  }
+
   private deleteFile(filePath?: string | null) {
     if (!filePath) return;
 
@@ -28,8 +37,63 @@ export class ProductsService {
     }
   }
 
+  // Normalize the public product payload to keep front-end consumers stable.
+  private toPublicProduct(p: any, baseUrl: string) {
+    const thumbnail = p.gallery?.find((g: any) => g.is_thumbnail)?.image ?? null;
+    const categories = (p.product_categories ?? [])
+      .map((pc: any) => pc.categories)
+      .filter(Boolean)
+      .map((c: any) => ({
+        id: c.id,
+        category_name: c.category_name,
+        parent_id: c.parent_id,
+        image: c.image ?? null,
+      }));
+
+    const categoryLabel =
+      categories.find((c: any) => c.parent_id)?.category_name ??
+      categories[0]?.category_name ??
+      p.product_type ??
+      'Uncategorized';
+
+    return {
+      id: p.id,
+      name: p.product_name,
+      slug: p.slug,
+      price: parseFloat(p.sale_price.toString()),
+      originalPrice: p.compare_price
+        ? parseFloat(p.compare_price.toString())
+        : null,
+      category: categoryLabel,
+      categories,
+      description: p.short_description,
+      fullDescription: p.product_description,
+      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
+      thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
+      images: (p.gallery ?? []).map((g: any) => `${baseUrl}${g.image}`),
+      gallery: (p.gallery ?? []).map((g: any) => `${baseUrl}${g.image}`),
+      inStock: p.quantity > 0,
+      quantity: p.quantity,
+      rating: null,
+      reviewCount: null,
+      badge: null,
+      sizes: null,
+      colors: null,
+      materials: null,
+      dimensions: null,
+      care: null,
+      cct: p.cct,
+      lumen: p.lumen,
+      cri: p.cri,
+      power: p.power ? parseFloat(p.power.toString()) : null,
+      angle: p.angle,
+    };
+  }
+
   async create(dto: any, adminId: string) {
     const slug = slugify(dto.slug || dto.product_name, { lower: true });
+    const rawCategoryIds = dto.category_ids ?? dto['category_ids[]'];
+    const categoryIds = this.normalizeCategoryIds(rawCategoryIds);
 
     const product = await this.prisma.products.create({
       data: {
@@ -81,8 +145,18 @@ export class ProductsService {
             })),
           ],
         },
+        ...(categoryIds.length > 0 && {
+          product_categories: {
+            create: categoryIds.map((category_id) => ({ category_id })),
+          },
+        }),
       },
-      include: { gallery: true },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
     });
 
     await this.adminsLogsService.log({
@@ -146,7 +220,12 @@ export class ProductsService {
         where,
         skip,
         take: safeLimit,
-        include: { gallery: true },
+        include: {
+          gallery: true,
+          product_categories: {
+            include: { categories: true },
+          },
+        },
         orderBy: { created_at: 'desc' },
       }),
       this.prisma.products.count({ where }),
@@ -174,7 +253,12 @@ export class ProductsService {
       where: {
         id,
       },
-      include: { gallery: true },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
     });
 
     if (!product) {
@@ -202,6 +286,11 @@ export class ProductsService {
     }
 
     const { images, thumbnail, removed_images = [], slug, ...rest } = dto;
+    const rawCategoryIds = dto.category_ids ?? dto['category_ids[]'];
+    const categoryIds =
+      rawCategoryIds !== undefined
+        ? this.normalizeCategoryIds(rawCategoryIds)
+        : undefined;
 
     const finalSlug =
       slug && slug !== existing.slug
@@ -237,6 +326,21 @@ export class ProductsService {
         where: { id },
         data: normalizedData,
       });
+
+      if (categoryIds !== undefined) {
+        await tx.product_categories.deleteMany({
+          where: { product_id: id },
+        });
+
+        if (categoryIds.length > 0) {
+          await tx.product_categories.createMany({
+            data: categoryIds.map((category_id) => ({
+              product_id: id,
+              category_id,
+            })),
+          });
+        }
+      }
 
       if (removed_images.length) {
         const toDelete = await tx.gallery.findMany({
@@ -348,12 +452,18 @@ export class ProductsService {
           AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
         },
       },
-      include: { gallery: true },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
       orderBy: { created_at: 'desc' },
     });
 
     const baseUrl = process.env.API_URL || 'http://localhost:3000';
 
+<<<<<<< Updated upstream
     return products.map((p) => {
       const thumbnail = p.gallery.find((g) => g.is_thumbnail)?.image;
 
@@ -389,6 +499,9 @@ export class ProductsService {
         angle: p.angle,
       };
     });
+=======
+    return products.map((p) => this.toPublicProduct(p, baseUrl));
+>>>>>>> Stashed changes
   }
 
   async findPublicOne(id: string) {
@@ -397,7 +510,12 @@ export class ProductsService {
         id,
         published: true,
       },
-      include: { gallery: true },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
     });
 
     if (!product) {
@@ -409,39 +527,8 @@ export class ProductsService {
     }
 
     const baseUrl = process.env.API_URL || 'http://localhost:3000';
-    const thumbnail = product.gallery.find((g) => g.is_thumbnail)?.image;
 
-    return {
-      id: product.id,
-      name: product.product_name,
-      slug: product.slug,
-      price: parseFloat(product.sale_price.toString()),
-      originalPrice: product.compare_price
-        ? parseFloat(product.compare_price.toString())
-        : null,
-      category: product.product_type || 'Uncategorized',
-      description: product.short_description,
-      fullDescription: product.product_description,
-      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
-      thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
-      images: product.gallery.map((g) => `${baseUrl}${g.image}`),
-      gallery: product.gallery.map((g) => `${baseUrl}${g.image}`),
-      inStock: product.quantity > 0,
-      quantity: product.quantity,
-      rating: null,
-      reviewCount: null,
-      badge: null,
-      sizes: null,
-      colors: null,
-      materials: null,
-      dimensions: null,
-      care: null,
-      cct: product.cct,
-      lumen: product.lumen,
-      cri: product.cri,
-      power: product.power ? parseFloat(product.power.toString()) : null,
-      angle: product.angle,
-    };
+    return this.toPublicProduct(product, baseUrl);
   }
 
   async bulkUpdate(dto: { ids: string[]; published?: boolean }) {

@@ -11,7 +11,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
 export class CreateProductDto {
@@ -91,6 +91,12 @@ export class CreateProductDto {
   @IsArray()
   @IsUrl({}, { each: true })
   images?: string[];
+
+  @ApiPropertyOptional({ type: [String], description: 'Category IDs' })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  category_ids?: string[];
 
   @ApiProperty()
   @IsNotEmpty()

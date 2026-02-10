@@ -333,6 +333,39 @@ model products {
   @@index([published], map: "idx_product_publish")
 }
 
+model rooms {
+  id          String          @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  room_type   String          @db.VarChar(50)
+  label       String          @db.VarChar(255)
+  description String?
+  width       Decimal         @db.Decimal(6, 2)
+  length      Decimal         @db.Decimal(6, 2)
+  height      Decimal         @db.Decimal(6, 2)
+  unit        String          @default("m") @db.VarChar(10)
+  created_at  DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime        @default(now()) @db.Timestamptz(6)
+  obstacles   room_obstacles[]
+
+  @@index([room_type], map: "idx_room_type")
+}
+
+model room_obstacles {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  room_id      String   @db.Uuid
+  obstacle_id  String   @db.VarChar(64)
+  label        String   @db.VarChar(255)
+  category     String   @db.VarChar(50)
+  width        Decimal  @db.Decimal(6, 2)
+  depth        Decimal  @db.Decimal(6, 2)
+  height       Decimal  @db.Decimal(6, 2)
+  placement_x  Decimal  @db.Decimal(5, 2)
+  placement_z  Decimal  @db.Decimal(5, 2)
+  blocks_light Boolean? @default(false)
+  rooms        rooms    @relation(fields: [room_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([room_id], map: "idx_room_obstacles_room_id")
+}
+
 model roles {
   id             Int              @id @default(autoincrement())
   role_name      String           @db.VarChar(255)

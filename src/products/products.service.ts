@@ -463,45 +463,7 @@ export class ProductsService {
 
     const baseUrl = process.env.API_URL || 'http://localhost:3000';
 
-<<<<<<< Updated upstream
-    return products.map((p) => {
-      const thumbnail = p.gallery.find((g) => g.is_thumbnail)?.image;
-
-      return {
-        id: p.id,
-        name: p.product_name,
-        slug: p.slug,
-        price: parseFloat(p.sale_price.toString()),
-        originalPrice: p.compare_price
-          ? parseFloat(p.compare_price.toString())
-          : null,
-        category: p.product_type || 'Uncategorized',
-        description: p.short_description,
-        fullDescription: p.product_description,
-        image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
-        thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
-        images: p.gallery.map((g) => `${baseUrl}${g.image}`),
-        gallery: p.gallery.map((g) => `${baseUrl}${g.image}`),
-        inStock: p.quantity > 0,
-        quantity: p.quantity,
-        rating: null,
-        reviewCount: null,
-        badge: null,
-        sizes: null,
-        colors: null,
-        materials: null,
-        dimensions: null,
-        care: null,
-        cct: p.cct,
-        lumen: p.lumen,
-        cri: p.cri,
-        power: p.power ? parseFloat(p.power.toString()) : null,
-        angle: p.angle,
-      };
-    });
-=======
     return products.map((p) => this.toPublicProduct(p, baseUrl));
->>>>>>> Stashed changes
   }
 
   async findPublicOne(id: string) {

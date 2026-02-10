@@ -10,6 +10,7 @@ import {
   Res,
   UseInterceptors,
   Body,
+  Query,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ApiTags } from '@nestjs/swagger';
@@ -137,27 +138,33 @@ export class ProductsController {
   }
 
   @Get('public')
-  async findPublic(@Res({ passthrough: true }) res: Response) {
+  async findPublic() {
     const products = await this.productsService.findPublic();
     return { data: products };
   }
 
   @Get('public/:id')
-  async findPublicOne(
-    @Param('id') id: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async findPublicOne(@Param('id') id: string) {
     const product = await this.productsService.findPublicOne(id);
     return { data: product };
   }
 
   @UseGuards(AdminJwtGuard)
   @Get()
-  findAll(@Req() req: any) {
-    const page = Number(req.query.page ?? 1);
-    const limit = Number(req.query.limit ?? 20);
-
-    return this.productsService.findAll({ page, limit });
+  findAll(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('categoryId') categoryId?: string,
+  ) {
+    return this.productsService.findAll({
+      page: Math.max(1, Number(page)),
+      limit: Math.min(100, Math.max(1, Number(limit))),
+      search: search?.trim(),
+      status,
+      categoryId,
+    });
   }
 
   @UseGuards(AdminJwtGuard)

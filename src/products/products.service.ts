@@ -96,19 +96,60 @@ export class ProductsService {
     return product;
   }
 
-  async findAll({ page, limit }: { page: number; limit: number }) {
+  async findAll({
+    page,
+    limit,
+    search,
+    status,
+    categoryId,
+  }: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    categoryId?: string;
+  }) {
     const safePage = Math.max(1, page);
     const safeLimit = Math.min(50, Math.max(1, limit));
     const skip = (safePage - 1) * safeLimit;
 
-    const [items, total] = await Promise.all([
+    const where: any = {};
+
+    const q = search?.trim();
+    if (q) {
+      where.OR = [
+        { product_name: { contains: q, mode: 'insensitive' } },
+        { sku: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        { product_type: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status === 'published') {
+      where.published = true;
+    }
+
+    if (status === 'draft') {
+      where.published = false;
+    }
+
+    if (categoryId) {
+      where.product_categories = {
+        some: {
+          category_id: categoryId,
+        },
+      };
+    }
+
+    const [items, total] = await this.prisma.$transaction([
       this.prisma.products.findMany({
+        where,
         skip,
         take: safeLimit,
         include: { gallery: true },
         orderBy: { created_at: 'desc' },
       }),
-      this.prisma.products.count(),
+      this.prisma.products.count({ where }),
     ]);
 
     const data = items.map((p) => ({
@@ -132,7 +173,6 @@ export class ProductsService {
     const product = await this.prisma.products.findFirst({
       where: {
         id,
-        published: true,
       },
       include: { gallery: true },
     });
@@ -190,7 +230,6 @@ export class ProductsService {
       ...(dto.cri !== undefined && { cri: Number(dto.cri) }),
       ...(dto.power !== undefined && { power: Number(dto.power) }),
       ...(dto.angle !== undefined && { angle: Number(dto.angle) }),
-
     };
 
     await this.prisma.$transaction(async (tx) => {
@@ -300,7 +339,8 @@ export class ProductsService {
     return { success: true };
   }
 
-  async findPublic() { //for one product details
+  async findPublic() {
+    //for one product details
     const products = await this.prisma.products.findMany({
       where: {
         published: true,
@@ -347,7 +387,6 @@ export class ProductsService {
         cri: p.cri,
         power: p.power ? parseFloat(p.power.toString()) : null,
         angle: p.angle,
-
       };
     });
   }

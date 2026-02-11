@@ -443,8 +443,15 @@ export class ProductsService {
     return { success: true };
   }
 
-  async findPublic({ categoryId }: { categoryId?: string } = {}) {
-    //for one product details
+  async findPublic({
+    categoryId,
+    limit,
+    start,
+  }: {
+    categoryId?: string;
+    limit?: number;
+    start?: number;
+  } = {}) {
     const categoryFilterIds: string[] = [];
     if (categoryId) {
       categoryFilterIds.push(categoryId);
@@ -457,20 +464,60 @@ export class ProductsService {
       }
     }
 
-    const products = await this.prisma.products.findMany({
-      where: {
-        published: true,
-        NOT: {
-          AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
+    const where = {
+      published: true,
+      NOT: {
+        AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
+      },
+      ...(categoryFilterIds.length > 0 && {
+        product_categories: {
+          some: {
+            category_id: { in: categoryFilterIds },
+          },
         },
-        ...(categoryFilterIds.length > 0 && {
-          product_categories: {
-            some: {
-              category_id: { in: categoryFilterIds },
+      }),
+    };
+
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+    const safeLimit =
+      limit !== undefined && Number.isFinite(limit)
+        ? Math.min(100, Math.max(1, Math.floor(limit)))
+        : undefined;
+    const safeStart =
+      start !== undefined && Number.isFinite(start)
+        ? Math.max(0, Math.floor(start))
+        : 0;
+
+    if (safeLimit !== undefined) {
+      const [items, total] = await this.prisma.$transaction([
+        this.prisma.products.findMany({
+          where,
+          skip: safeStart,
+          take: safeLimit,
+          include: {
+            gallery: true,
+            product_categories: {
+              include: { categories: true },
             },
           },
+          orderBy: { created_at: 'desc' },
         }),
-      },
+        this.prisma.products.count({ where }),
+      ]);
+
+      return {
+        data: items.map((p) => this.toPublicProduct(p, baseUrl)),
+        meta: {
+          total,
+          limit: safeLimit,
+          start: safeStart,
+          totalPages: Math.ceil(total / safeLimit),
+        },
+      };
+    }
+
+    const products = await this.prisma.products.findMany({
+      where,
       include: {
         gallery: true,
         product_categories: {
@@ -480,9 +527,9 @@ export class ProductsService {
       orderBy: { created_at: 'desc' },
     });
 
-    const baseUrl = process.env.API_URL || 'http://localhost:3000';
-
-    return products.map((p) => this.toPublicProduct(p, baseUrl));
+    return {
+      data: products.map((p) => this.toPublicProduct(p, baseUrl)),
+    };
   }
 
   async findPublicOne(id: string) {

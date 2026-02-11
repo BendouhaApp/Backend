@@ -77,4 +77,10 @@ export class CreateShippingZoneDto {
   @IsNumber()
   @Min(0)
   office_delivery_price?: number;
+
+  @IsOptional()
+  @Transform(toNumber)
+  @IsNumber()
+  @Min(0)
+  default_rate?: number;
 }

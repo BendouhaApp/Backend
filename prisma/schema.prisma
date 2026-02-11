@@ -191,7 +191,9 @@ model orders {
   coupon_id                     String?         @db.Uuid
   customer_id                   String?         @db.Uuid
   order_status_id               String?         @db.Uuid
-  customer_phone                String?         @db.VarChar(255)
+  customer_first_name           String          @db.VarChar(100)
+  customer_last_name            String          @db.VarChar(100)
+  customer_phone                String          @db.VarChar(255)
   customer_wilaya               String?         @db.VarChar(255)
   delivery_type                 String?         @db.VarChar(20)
   shipping_zone_id              Int?

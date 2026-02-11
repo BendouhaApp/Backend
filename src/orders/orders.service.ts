@@ -38,6 +38,11 @@ export class OrdersService {
 
     const wilaya = await this.prisma.shipping_zones.findUnique({
       where: { id: dto.wilaya_id },
+      include: {
+        shipping_rates: {
+          orderBy: { min_value: 'asc' },
+        },
+      },
     });
 
     if (!wilaya || wilaya.active === false) {
@@ -46,18 +51,29 @@ export class OrdersService {
 
     const deliveryType = dto.delivery_type ?? 'home';
 
+    const defaultRate = (() => {
+      const fallback = wilaya.shipping_rates?.[0];
+      const rate =
+        wilaya.shipping_rates?.find(
+          (r) => r.no_max && Number(r.min_value) === 0,
+        ) ?? fallback;
+      return rate ? Number(rate.price) : null;
+    })();
+
     const shippingPrice = (() => {
       if (wilaya.free_shipping) return 0;
       if (deliveryType === 'office') {
         if (!wilaya.office_delivery_enabled) {
           throw new BadRequestException('Office delivery not available');
         }
-        return Number(wilaya.office_delivery_price ?? 0);
+        const officePrice = Number(wilaya.office_delivery_price ?? 0);
+        return officePrice > 0 ? officePrice : Number(defaultRate ?? officePrice);
       }
       if (!wilaya.home_delivery_enabled) {
         throw new BadRequestException('Home delivery not available');
       }
-      return Number(wilaya.home_delivery_price ?? 0);
+      const homePrice = Number(wilaya.home_delivery_price ?? 0);
+      return homePrice > 0 ? homePrice : Number(defaultRate ?? homePrice);
     })();
 
     const itemsTotal = card.card_items.reduce((sum, item) => {
@@ -76,6 +92,8 @@ export class OrdersService {
         customer_id: dto.customer_id,
         coupon_id: dto.coupon_id,
         order_status_id: dto.order_status_id,
+        customer_first_name: dto.customer_first_name,
+        customer_last_name: dto.customer_last_name,
         customer_phone: dto.customer_phone,
         customer_wilaya: wilaya.display_name,
         delivery_type: deliveryType,

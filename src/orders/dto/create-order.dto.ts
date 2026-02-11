@@ -4,6 +4,20 @@ import { Type } from 'class-transformer';
 
 export class CreateOrderDto {
   @ApiProperty({
+    example: 'Ahmed',
+  })
+  @IsNotEmpty()
+  @IsString()
+  customer_first_name: string;
+
+  @ApiProperty({
+    example: 'Benali',
+  })
+  @IsNotEmpty()
+  @IsString()
+  customer_last_name: string;
+
+  @ApiProperty({
     example: '+213551234567',
   })
   @IsNotEmpty()

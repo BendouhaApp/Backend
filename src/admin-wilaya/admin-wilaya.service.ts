@@ -19,8 +19,27 @@ export class AdminWilayaService {
   async getAll() {
     const data = await this.prisma.shipping_zones.findMany({
       orderBy: { id: 'asc' },
+      include: {
+        shipping_rates: {
+          orderBy: { min_value: 'asc' },
+        },
+      },
     })
-    return { data }
+
+    const withRates = data.map((zone) => {
+      const fallback = zone.shipping_rates[0]
+      const defaultRate =
+        zone.shipping_rates.find(
+          (rate) => rate.no_max && Number(rate.min_value) === 0,
+        ) ?? fallback
+
+      return {
+        ...zone,
+        default_rate: defaultRate ? Number(defaultRate.price) : null,
+      }
+    })
+
+    return { data: withRates }
   }
 
   async create(dto: CreateShippingZoneDto, adminId: string) {
@@ -29,6 +48,19 @@ export class AdminWilayaService {
         data: {
           ...this.normalizeCreate(dto),
           created_by: adminId,
+        },
+      })
+
+      const rateValue =
+        dto.default_rate ?? (dto.free_shipping ? 0 : 700)
+
+      await this.prisma.shipping_rates.create({
+        data: {
+          shipping_zone_id: zone.id,
+          min_value: new Prisma.Decimal(0),
+          max_value: null,
+          no_max: true,
+          price: new Prisma.Decimal(rateValue),
         },
       })
 
@@ -70,6 +102,33 @@ export class AdminWilayaService {
           updated_by: adminId,
         },
       })
+
+      if (dto.default_rate !== undefined) {
+        const existingRate = await this.prisma.shipping_rates.findFirst({
+          where: {
+            shipping_zone_id: id,
+            no_max: true,
+            min_value: new Prisma.Decimal(0),
+          },
+        })
+
+        if (existingRate) {
+          await this.prisma.shipping_rates.update({
+            where: { id: existingRate.id },
+            data: { price: new Prisma.Decimal(dto.default_rate) },
+          })
+        } else {
+          await this.prisma.shipping_rates.create({
+            data: {
+              shipping_zone_id: id,
+              min_value: new Prisma.Decimal(0),
+              max_value: null,
+              no_max: true,
+              price: new Prisma.Decimal(dto.default_rate),
+            },
+          })
+        }
+      }
 
       await this.adminsLogsService.log({
         adminId,

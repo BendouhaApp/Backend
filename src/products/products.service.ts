@@ -290,6 +290,8 @@ export class ProductsService {
 
     const products = await this.prisma.products.findMany({
       where,
+      skip: start ?? 0,
+      take: limit ?? 20,
       include: {
         gallery: true,
         product_categories: {
@@ -299,8 +301,15 @@ export class ProductsService {
       orderBy: { created_at: 'desc' },
     });
 
+    const total = await this.prisma.products.count({ where });
+
     return {
       data: products.map((p) => this.toPublicProduct(p, baseUrl)),
+      meta: {
+        total,
+        limit: limit ?? 20,
+        start: start ?? 0,
+      },
     };
   }
 

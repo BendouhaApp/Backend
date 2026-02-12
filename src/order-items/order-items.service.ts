@@ -1,7 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
 import { UpdateOrderItemDto } from './dto/update-order-item.dto';
@@ -38,12 +35,10 @@ export class OrderItemsService {
   async findByOrder(order_id: string) {
     const items = await this.prisma.order_items.findMany({
       where: { order_id },
+      include: { products: true },
     });
 
-    return {
-      message: 'Order items list',
-      data: items,
-    };
+    return { message: 'Order items list', data: items };
   }
 
   async update(id: string, dto: UpdateOrderItemDto) {

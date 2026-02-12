@@ -21,62 +21,62 @@ export class OrdersService {
       throw new BadRequestException('cart_id is required');
     }
 
-    const card = await this.prisma.cards.findUnique({
+    const cart = await this.prisma.cards.findUnique({
       where: { id: card_id },
       include: {
         card_items: {
-          include: {
-            products: true,
-          },
+          include: { products: true },
         },
       },
     });
 
-    if (!card || card.card_items.length === 0) {
+    if (!cart || cart.card_items.length === 0) {
       throw new BadRequestException('Cart is empty');
     }
 
-    const wilaya = await this.prisma.shipping_zones.findUnique({
+    const zone = await this.prisma.shipping_zones.findUnique({
       where: { id: dto.wilaya_id },
       include: {
-        shipping_rates: {
-          orderBy: { min_value: 'asc' },
+        shipping_rates: { orderBy: { min_value: 'asc' } },
+      },
+    });
+
+    if (!zone || zone.active === false) {
+      throw new BadRequestException('Wilaya not found');
+    }
+
+    const pendingStatus = await this.prisma.order_statuses.findFirst({
+      where: {
+        status_name: {
+          equals: 'Pending',
+          mode: 'insensitive',
         },
       },
     });
 
-    if (!wilaya || wilaya.active === false) {
-      throw new BadRequestException('Wilaya not found');
+    if (!pendingStatus) {
+      throw new BadRequestException('Pending status not configured');
     }
 
     const deliveryType = dto.delivery_type ?? 'home';
 
-    const defaultRate = (() => {
-      const fallback = wilaya.shipping_rates?.[0];
-      const rate =
-        wilaya.shipping_rates?.find(
-          (r) => r.no_max && Number(r.min_value) === 0,
-        ) ?? fallback;
-      return rate ? Number(rate.price) : null;
-    })();
+    let shippingPrice = 0;
 
-    const shippingPrice = (() => {
-      if (wilaya.free_shipping) return 0;
+    if (!zone.free_shipping) {
       if (deliveryType === 'office') {
-        if (!wilaya.office_delivery_enabled) {
+        if (!zone.office_delivery_enabled) {
           throw new BadRequestException('Office delivery not available');
         }
-        const officePrice = Number(wilaya.office_delivery_price ?? 0);
-        return officePrice > 0 ? officePrice : Number(defaultRate ?? officePrice);
+        shippingPrice = Number(zone.office_delivery_price ?? 0);
+      } else {
+        if (!zone.home_delivery_enabled) {
+          throw new BadRequestException('Home delivery not available');
+        }
+        shippingPrice = Number(zone.home_delivery_price ?? 0);
       }
-      if (!wilaya.home_delivery_enabled) {
-        throw new BadRequestException('Home delivery not available');
-      }
-      const homePrice = Number(wilaya.home_delivery_price ?? 0);
-      return homePrice > 0 ? homePrice : Number(defaultRate ?? homePrice);
-    })();
+    }
 
-    const itemsTotal = card.card_items.reduce((sum, item) => {
+    const itemsTotal = cart.card_items.reduce((sum, item) => {
       const unitPrice = Number(item.products?.sale_price ?? 0);
       const qty = item.quantity ?? 1;
       return sum + unitPrice * qty;
@@ -91,17 +91,17 @@ export class OrdersService {
         id: orderId,
         customer_id: dto.customer_id,
         coupon_id: dto.coupon_id,
-        order_status_id: dto.order_status_id,
+        order_status_id: pendingStatus.id,
         customer_first_name: dto.customer_first_name,
         customer_last_name: dto.customer_last_name,
         customer_phone: dto.customer_phone,
-        customer_wilaya: wilaya.display_name,
+        customer_wilaya: zone.display_name,
         delivery_type: deliveryType,
-        shipping_zone_id: wilaya.id,
+        shipping_zone_id: zone.id,
         shipping_price: new Prisma.Decimal(shippingPrice),
         total_price: new Prisma.Decimal(totalPrice),
         order_items: {
-          create: card.card_items.map((item) => ({
+          create: cart.card_items.map((item) => ({
             product_id: item.product_id,
             quantity: item.quantity ?? 1,
             price: new Prisma.Decimal(item.products?.sale_price ?? 0),
@@ -109,7 +109,11 @@ export class OrdersService {
         },
       },
       include: {
-        order_items: true,
+        order_items: {
+          include: { products: true },
+        },
+        customers: true,
+        order_statuses: true,
       },
     });
 
@@ -128,46 +132,50 @@ export class OrdersService {
     };
   }
 
-async findAll({ page, limit }: { page: number; limit: number }) {
-  const safePage = Math.max(1, page);
-  const safeLimit = Math.min(50, Math.max(1, limit));
-  const skip = (safePage - 1) * safeLimit;
+  async findAll({ page, limit }: { page: number; limit: number }) {
+    const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    const safeLimitRaw =
+      Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 20;
+    const safeLimit = Math.min(50, safeLimitRaw);
+    const skip = (safePage - 1) * safeLimit;
 
-  const [items, total] = await Promise.all([
-    this.prisma.orders.findMany({
-      skip,
-      take: safeLimit,
-      include: {
-        order_items: true,
-        customers: true,
-        order_statuses: true,
+    const [items, total] = await Promise.all([
+      this.prisma.orders.findMany({
+        skip,
+        take: safeLimit,
+        include: {
+          order_items: { include: { products: true } },
+          customers: true,
+          order_statuses: true,
+          shipping_zones: true,
+          coupons: true,
+        },
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.orders.count(),
+    ]);
+
+    return {
+      data: items,
+      meta: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        totalPages: Math.ceil(total / safeLimit),
       },
-      orderBy: {
-        created_at: 'desc',
-      },
-    }),
-    this.prisma.orders.count(),
-  ]);
-
-  return {
-    data: items,
-    meta: {
-      page: safePage,
-      limit: safeLimit,
-      total,
-      totalPages: Math.ceil(total / safeLimit),
-    },
-  };
-}
-
+    };
+  }
 
   async findOne(id: string) {
     const order = await this.prisma.orders.findUnique({
       where: { id },
       include: {
-        order_items: true,
+        order_items: {
+          include: { products: true },
+        },
         customers: true,
         order_statuses: true,
+        shipping_zones: true,
       },
     });
 
@@ -215,10 +223,17 @@ async findAll({ page, limit }: { page: number; limit: number }) {
   async remove(id: string, adminId: string) {
     const existing = await this.prisma.orders.findUnique({
       where: { id },
+      include: { order_items: true },
     });
 
     if (!existing) {
       throw new NotFoundException('Order not found');
+    }
+
+    if (existing.order_items.length > 0) {
+      await this.prisma.order_items.deleteMany({
+        where: { order_id: id },
+      });
     }
 
     const order = await this.prisma.orders.delete({
@@ -248,5 +263,32 @@ async findAll({ page, limit }: { page: number; limit: number }) {
       message: 'Order statuses',
       data: statuses,
     };
+  }
+
+  async findOneAdmin(id: string) {
+    const order = await this.prisma.orders.findUnique({
+      where: { id },
+      include: {
+        order_items: {
+          include: {
+            products: {
+              include: {
+                gallery: true,
+              },
+            },
+          },
+        },
+        customers: {
+          include: { customer_addresses: true },
+        },
+        order_statuses: true,
+        shipping_zones: true,
+        coupons: true,
+      },
+    });
+
+    if (!order) throw new NotFoundException('Order not found');
+
+    return { message: 'Order details (admin)', data: order };
   }
 }

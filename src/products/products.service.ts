@@ -20,9 +20,7 @@ export class ProductsService {
   private normalizeCategoryIds(input: unknown): string[] {
     if (!input) return [];
     const raw = Array.isArray(input) ? input : [input];
-    const normalized = raw
-      .map((value) => String(value).trim())
-      .filter(Boolean);
+    const normalized = raw.map((value) => String(value).trim()).filter(Boolean);
     return Array.from(new Set(normalized));
   }
 
@@ -39,7 +37,8 @@ export class ProductsService {
 
   // Normalize the public product payload to keep front-end consumers stable.
   private toPublicProduct(p: any, baseUrl: string) {
-    const thumbnail = p.gallery?.find((g: any) => g.is_thumbnail)?.image ?? null;
+    const thumbnail =
+      p.gallery?.find((g: any) => g.is_thumbnail)?.image ?? null;
     const categories = (p.product_categories ?? [])
       .map((pc: any) => pc.categories)
       .filter(Boolean)
@@ -248,6 +247,63 @@ export class ProductsService {
     };
   }
 
+  async findPublic({
+    categoryId,
+    limit,
+    start,
+  }: {
+    categoryId?: string;
+    limit?: number;
+    start?: number;
+  } = {}) {
+    const categoryFilterIds: string[] = [];
+
+    if (categoryId) {
+      categoryFilterIds.push(categoryId);
+
+      const children = await this.prisma.categories.findMany({
+        where: { parent_id: categoryId, active: true },
+        select: { id: true },
+      });
+
+      for (const child of children) {
+        categoryFilterIds.push(child.id);
+      }
+    }
+
+    const where: any = {
+      published: true,
+      NOT: {
+        AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
+      },
+    };
+
+    if (categoryFilterIds.length > 0) {
+      where.product_categories = {
+        some: {
+          category_id: { in: categoryFilterIds },
+        },
+      };
+    }
+
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+
+    const products = await this.prisma.products.findMany({
+      where,
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return {
+      data: products.map((p) => this.toPublicProduct(p, baseUrl)),
+    };
+  }
+
   async findOne(id: string) {
     const product = await this.prisma.products.findFirst({
       where: {
@@ -285,8 +341,16 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const { images, thumbnail, removed_images = [], slug, ...rest } = dto;
-    const rawCategoryIds = dto.category_ids ?? dto['category_ids[]'];
+    const {
+      images,
+      thumbnail,
+      removed_images = [],
+      slug,
+      category_ids,
+      ['category_ids[]']: category_ids_array,
+    } = dto;
+
+    const rawCategoryIds = category_ids ?? category_ids_array;
     const categoryIds =
       rawCategoryIds !== undefined
         ? this.normalizeCategoryIds(rawCategoryIds)
@@ -297,34 +361,70 @@ export class ProductsService {
         ? slugify(slug, { lower: true })
         : undefined;
 
-    const normalizedData = {
-      ...rest,
-      sku: rest.sku || null,
-      sale_price: rest.sale_price != null ? Number(rest.sale_price) : undefined,
-      compare_price:
-        rest.compare_price != null ? Number(rest.compare_price) : null,
-      buying_price:
-        rest.buying_price != null ? Number(rest.buying_price) : null,
-      quantity: rest.quantity != null ? Number(rest.quantity) : undefined,
-      published: rest.published === true || rest.published === 'true',
-      disable_out_of_stock:
-        rest.disable_out_of_stock === true ||
-        rest.disable_out_of_stock === 'true',
-      product_type: rest.product_type || null,
-      note: rest.note || null,
-      ...(finalSlug ? { slug: finalSlug } : {}),
+    const has = (key: string) => Object.prototype.hasOwnProperty.call(dto, key);
+
+    const data: any = {
       updated_by: adminId,
-      ...(dto.cct !== undefined && { cct: Number(dto.cct) }),
-      ...(dto.lumen !== undefined && { lumen: Number(dto.lumen) }),
-      ...(dto.cri !== undefined && { cri: Number(dto.cri) }),
-      ...(dto.power !== undefined && { power: Number(dto.power) }),
-      ...(dto.angle !== undefined && { angle: Number(dto.angle) }),
     };
+
+    if (finalSlug) data.slug = finalSlug;
+
+    if (has('product_name')) data.product_name = dto.product_name;
+    if (has('short_description'))
+      data.short_description = dto.short_description;
+    if (has('product_description'))
+      data.product_description = dto.product_description;
+
+    if (has('sku')) data.sku = dto.sku ? String(dto.sku) : null;
+
+    if (has('sale_price')) {
+      data.sale_price = Number(dto.sale_price ?? 0);
+    }
+
+    if (has('quantity')) {
+      data.quantity = Number(dto.quantity ?? 0);
+    }
+
+    if (has('compare_price')) {
+      const v = dto.compare_price;
+      data.compare_price =
+        v === '' || v === null || v === undefined ? null : Number(v);
+    }
+
+    if (has('buying_price')) {
+      const v = dto.buying_price;
+      data.buying_price =
+        v === '' || v === null || v === undefined ? null : Number(v);
+    }
+
+    if (has('published')) {
+      data.published = dto.published === true || dto.published === 'true';
+    }
+
+    if (has('disable_out_of_stock')) {
+      data.disable_out_of_stock =
+        dto.disable_out_of_stock === true ||
+        dto.disable_out_of_stock === 'true';
+    }
+
+    if (has('product_type')) {
+      data.product_type = dto.product_type ? String(dto.product_type) : null;
+    }
+
+    if (has('note')) {
+      data.note = dto.note ? String(dto.note) : null;
+    }
+
+    if (has('cct')) data.cct = Number(dto.cct ?? 0);
+    if (has('lumen')) data.lumen = Number(dto.lumen ?? 0);
+    if (has('cri')) data.cri = Number(dto.cri ?? 0);
+    if (has('power')) data.power = Number(dto.power ?? 0);
+    if (has('angle')) data.angle = Number(dto.angle ?? 0);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.products.update({
         where: { id },
-        data: normalizedData,
+        data,
       });
 
       if (categoryIds !== undefined) {
@@ -342,15 +442,15 @@ export class ProductsService {
         }
       }
 
-      if (removed_images.length) {
-        const toDelete = await tx.gallery.findMany({
+      if (Array.isArray(removed_images) && removed_images.length > 0) {
+        const imagesToDelete = await tx.gallery.findMany({
           where: {
             product_id: id,
             image: { in: removed_images },
           },
         });
 
-        for (const img of toDelete) {
+        for (const img of imagesToDelete) {
           this.deleteFile(img.image);
         }
 
@@ -372,7 +472,10 @@ export class ProductsService {
 
         if (oldThumb) {
           this.deleteFile(oldThumb.image);
-          await tx.gallery.delete({ where: { id: oldThumb.id } });
+
+          await tx.gallery.delete({
+            where: { id: oldThumb.id },
+          });
         }
 
         await tx.gallery.create({
@@ -385,7 +488,7 @@ export class ProductsService {
         });
       }
 
-      if (images?.length) {
+      if (Array.isArray(images) && images.length > 0) {
         await tx.gallery.createMany({
           data: images.map((img: string) => ({
             product_id: id,
@@ -406,130 +509,6 @@ export class ProductsService {
     });
 
     return this.findOne(id);
-  }
-
-  async remove(id: string, adminId: string) {
-    const existing = await this.prisma.products.findUnique({
-      where: { id },
-      include: { gallery: true },
-    });
-
-    if (!existing) {
-      throw new NotFoundException('Product not found');
-    }
-
-    await this.prisma.$transaction(async (tx) => {
-      for (const img of existing.gallery) {
-        this.deleteFile(img.image);
-      }
-
-      await tx.gallery.deleteMany({
-        where: { product_id: id },
-      });
-
-      await tx.products.delete({
-        where: { id },
-      });
-    });
-
-    await this.adminsLogsService.log({
-      adminId,
-      action: AdminAction.DELETE,
-      entity: AdminEntity.PRODUCT,
-      entityId: id,
-      description: 'Product deleted',
-    });
-
-    return { success: true };
-  }
-
-  async findPublic({
-    categoryId,
-    limit,
-    start,
-  }: {
-    categoryId?: string;
-    limit?: number;
-    start?: number;
-  } = {}) {
-    const categoryFilterIds: string[] = [];
-    if (categoryId) {
-      categoryFilterIds.push(categoryId);
-      const childCategories = await this.prisma.categories.findMany({
-        where: { parent_id: categoryId, active: true },
-        select: { id: true },
-      });
-      for (const child of childCategories) {
-        categoryFilterIds.push(child.id);
-      }
-    }
-
-    const where = {
-      published: true,
-      NOT: {
-        AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
-      },
-      ...(categoryFilterIds.length > 0 && {
-        product_categories: {
-          some: {
-            category_id: { in: categoryFilterIds },
-          },
-        },
-      }),
-    };
-
-    const baseUrl = process.env.API_URL || 'http://localhost:3000';
-    const safeLimit =
-      limit !== undefined && Number.isFinite(limit)
-        ? Math.min(100, Math.max(1, Math.floor(limit)))
-        : undefined;
-    const safeStart =
-      start !== undefined && Number.isFinite(start)
-        ? Math.max(0, Math.floor(start))
-        : 0;
-
-    if (safeLimit !== undefined) {
-      const [items, total] = await this.prisma.$transaction([
-        this.prisma.products.findMany({
-          where,
-          skip: safeStart,
-          take: safeLimit,
-          include: {
-            gallery: true,
-            product_categories: {
-              include: { categories: true },
-            },
-          },
-          orderBy: { created_at: 'desc' },
-        }),
-        this.prisma.products.count({ where }),
-      ]);
-
-      return {
-        data: items.map((p) => this.toPublicProduct(p, baseUrl)),
-        meta: {
-          total,
-          limit: safeLimit,
-          start: safeStart,
-          totalPages: Math.ceil(total / safeLimit),
-        },
-      };
-    }
-
-    const products = await this.prisma.products.findMany({
-      where,
-      include: {
-        gallery: true,
-        product_categories: {
-          include: { categories: true },
-        },
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    return {
-      data: products.map((p) => this.toPublicProduct(p, baseUrl)),
-    };
   }
 
   async findPublicOne(id: string) {
@@ -559,6 +538,90 @@ export class ProductsService {
     return this.toPublicProduct(product, baseUrl);
   }
 
+  async remove(id: string, adminId: string) {
+    const existing = await this.prisma.products.findUnique({
+      where: { id },
+      include: {
+        gallery: true,
+        order_items: { select: { id: true } },
+      },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Product not found');
+    }
+
+    if (existing.order_items.length > 0) {
+      throw new BadRequestException(
+        'Cannot delete product that exists in orders. Mark it as unpublished instead.',
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.card_items.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_categories.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_tags.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_coupons.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_suppliers.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_attributes.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.variant_options.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.variants.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.product_shipping_info.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.sells.deleteMany({
+        where: { product_id: id },
+      });
+
+      for (const img of existing.gallery) {
+        this.deleteFile(img.image);
+      }
+
+      await tx.gallery.deleteMany({
+        where: { product_id: id },
+      });
+
+      await tx.products.delete({
+        where: { id },
+      });
+    });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.DELETE,
+      entity: AdminEntity.PRODUCT,
+      entityId: id,
+      description: 'Product deleted',
+    });
+
+    return { success: true };
+  }
+
   async bulkUpdate(dto: { ids: string[]; published?: boolean }) {
     if (!dto.ids?.length) {
       throw new BadRequestException('No product IDs provided');
@@ -577,33 +640,86 @@ export class ProductsService {
   }
 
   async bulkDelete(ids: string[], adminId?: string) {
-    if (!ids?.length) {
+    if (!Array.isArray(ids) || ids.length === 0) {
       throw new BadRequestException('No product IDs provided');
     }
 
+    const uniqueIds = [...new Set(ids)];
+
     const products = await this.prisma.products.findMany({
-      where: { id: { in: ids } },
-      include: { gallery: true },
+      where: { id: { in: uniqueIds } },
+      include: {
+        gallery: true,
+        order_items: { select: { id: true } },
+      },
     });
 
-    await this.prisma.$transaction(async (tx) => {
-      for (const product of products) {
-        await tx.card_items.deleteMany({
-          where: { product_id: product.id },
-        });
+    if (products.length === 0) {
+      return { success: true, count: 0 };
+    }
 
+    const productsInOrders = products.filter((p) => p.order_items.length > 0);
+
+    if (productsInOrders.length > 0) {
+      throw new BadRequestException(
+        `Cannot delete ${productsInOrders.length} product(s) that exist in orders. Mark them as unpublished instead.`,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.card_items.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_categories.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_tags.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_coupons.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_suppliers.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_attributes.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.variant_options.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.variants.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.product_shipping_info.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.sells.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      for (const product of products) {
         for (const img of product.gallery) {
           this.deleteFile(img.image);
         }
-
-        await tx.gallery.deleteMany({
-          where: { product_id: product.id },
-        });
-
-        await tx.products.delete({
-          where: { id: product.id },
-        });
       }
+
+      await tx.gallery.deleteMany({
+        where: { product_id: { in: uniqueIds } },
+      });
+
+      await tx.products.deleteMany({
+        where: { id: { in: uniqueIds } },
+      });
     });
 
     for (const product of products) {
@@ -616,6 +732,9 @@ export class ProductsService {
       });
     }
 
-    return { success: true, count: products.length };
+    return {
+      success: true,
+      count: products.length,
+    };
   }
 }

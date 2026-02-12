@@ -59,4 +59,10 @@ export class OrdersController {
   findOne(@Param('id') id: string) {
     return this.ordersService.findOne(id);
   }
+
+  @UseGuards(AdminJwtGuard)
+  @Get('admin/:id')
+  findOneAdmin(@Param('id') id: string) {
+    return this.ordersService.findOneAdmin(id);
+  }
 }

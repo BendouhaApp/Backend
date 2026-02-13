@@ -51,8 +51,16 @@ export class ProductsController {
 
   @UseGuards(AdminJwtGuard)
   @Patch('bulk')
-  bulkUpdate(@Body() dto: { ids: string[]; published?: boolean }) {
-    return this.productsService.bulkUpdate(dto);
+  bulkUpdate(
+    @Body()
+    dto: {
+      ids: string[];
+      published?: boolean;
+      in_stock?: boolean;
+    },
+    @Req() req: any,
+  ) {
+    return this.productsService.bulkUpdate(dto, req.user.id);
   }
 
   @UseGuards(AdminJwtGuard)

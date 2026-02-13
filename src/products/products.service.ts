@@ -182,8 +182,8 @@ export class ProductsService {
     status?: string;
     categoryId?: string;
   }) {
-    const safePage = Math.max(1, page);
-    const safeLimit = Math.min(50, Math.max(1, limit));
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
     const skip = (safePage - 1) * safeLimit;
 
     const where: any = {};
@@ -256,6 +256,9 @@ export class ProductsService {
     limit?: number;
     start?: number;
   } = {}) {
+    const safeStart = Math.max(0, Number(start) || 0);
+    const safeLimit = Math.min(50, Math.max(1, Number(limit) || 9));
+
     const categoryFilterIds: string[] = [];
 
     if (categoryId) {
@@ -288,27 +291,29 @@ export class ProductsService {
 
     const baseUrl = process.env.API_URL || 'http://localhost:3000';
 
-    const products = await this.prisma.products.findMany({
-      where,
-      skip: start ?? 0,
-      take: limit ?? 20,
-      include: {
-        gallery: true,
-        product_categories: {
-          include: { categories: true },
+    const [products, total] = await this.prisma.$transaction([
+      this.prisma.products.findMany({
+        where,
+        skip: safeStart,
+        take: safeLimit,
+        include: {
+          gallery: true,
+          product_categories: {
+            include: { categories: true },
+          },
         },
-      },
-      orderBy: { created_at: 'desc' },
-    });
-
-    const total = await this.prisma.products.count({ where });
+        orderBy: { created_at: 'desc' },
+      }),
+      this.prisma.products.count({ where }),
+    ]);
 
     return {
       data: products.map((p) => this.toPublicProduct(p, baseUrl)),
       meta: {
         total,
-        limit: limit ?? 20,
-        start: start ?? 0,
+        limit: safeLimit,
+        start: safeStart,
+        totalPages: Math.ceil(total / safeLimit),
       },
     };
   }
@@ -631,21 +636,51 @@ export class ProductsService {
     return { success: true };
   }
 
-  async bulkUpdate(dto: { ids: string[]; published?: boolean }) {
+  async bulkUpdate(
+    dto: {
+      ids: string[];
+      published?: boolean;
+      disable_out_of_stock?: boolean;
+      quantity?: number;
+    },
+    adminId: string,
+  ) {
     if (!dto.ids?.length) {
       throw new BadRequestException('No product IDs provided');
     }
 
-    return this.prisma.products.updateMany({
-      where: {
-        id: { in: dto.ids },
-      },
-      data: {
-        ...(dto.published !== undefined && {
-          published: dto.published,
-        }),
-      },
+    const data: any = {};
+
+    if (typeof dto.published === 'boolean') {
+      data.published = dto.published;
+    }
+
+    if (typeof dto.disable_out_of_stock === 'boolean') {
+      data.disable_out_of_stock = dto.disable_out_of_stock;
+    }
+
+    if (typeof dto.quantity === 'number') {
+      data.quantity = dto.quantity;
+    }
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException('Nothing to update');
+    }
+
+    const result = await this.prisma.products.updateMany({
+      where: { id: { in: dto.ids } },
+      data,
     });
+
+    await this.adminsLogsService.log({
+      adminId,
+      action: AdminAction.UPDATE,
+      entity: AdminEntity.PRODUCT,
+      entityId: 'bulk',
+      description: `Bulk updated ${dto.ids.length} products`,
+    });
+
+    return result;
   }
 
   async bulkDelete(ids: string[], adminId?: string) {

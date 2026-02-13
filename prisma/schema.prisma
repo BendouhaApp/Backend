@@ -327,11 +327,11 @@ model products {
   sells                                              sells?
   variant_options                                    variant_options[]
   variants                                           variants[]
-  cct                                                Int                     @default(0)
-  lumen                                              Int                     @default(0)
-  cri                                                Int                     @default(0)
-  power                                              Decimal                 @default(0) @db.Decimal
-  angle                                              Int                     @default(0)
+  cct                                                Int                     @default(3000)
+  lumen                                              Int                     @default(800)
+  cri                                                Int                     @default(90)
+  power                                              Decimal                 @default(10) @db.Decimal
+  angle                                              Int                     @default(60)
 
   @@index([published], map: "idx_product_publish")
 }

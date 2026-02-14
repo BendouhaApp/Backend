@@ -6,8 +6,16 @@ export class AdminDashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getStats() {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
+
     const [
       totalOrders,
+      todayOrders,
       pendingOrders,
       totalProducts,
       publishedProducts,
@@ -17,78 +25,89 @@ export class AdminDashboardService {
       totalCategories,
       mainCategories,
       subCategories,
-      orderItems,
+      totalRevenueAgg,
+      confirmedOrders,
       totalWilayas,
       activeWilayas,
       inactiveWilayas,
     ] = await Promise.all([
+      
       this.prisma.orders.count(),
+      this.prisma.orders.count({
+        where: {
+          created_at: {
+            gte: startOfToday,
+          },
+        },
+      }),
 
       this.prisma.orders.count({
         where: {
           order_statuses: {
-            status_name: 'pending',
+            status_name: {
+              equals: 'Pending',
+              mode: 'insensitive',
+            },
           },
         },
       }),
 
       this.prisma.products.count(),
-
+      this.prisma.products.count({ where: { published: true } }),
+      this.prisma.products.count({ where: { published: false } }),
+      this.prisma.products.count({ where: { quantity: 0 } }),
       this.prisma.products.count({
-        where: { published: true },
-      }),
-
-      this.prisma.products.count({
-        where: { published: false },
-      }),
-
-      this.prisma.products.count({
-        where: { quantity: 0 },
-      }),
-
-      this.prisma.products.count({
-        where: {
-          quantity: { gt: 0, lte: 10 },
-        },
+        where: { quantity: { gt: 0, lte: 10 } },
       }),
 
       this.prisma.categories.count(),
-
-      this.prisma.categories.count({
-        where: { parent_id: null },
-      }),
-
-      this.prisma.categories.count({
-        where: { parent_id: { not: null } },
-      }),
+      this.prisma.categories.count({ where: { parent_id: null } }),
+      this.prisma.categories.count({ where: { parent_id: { not: null } } }),
 
       this.prisma.order_items.findMany({
+        where: {
+          orders: {
+            order_statuses: {
+              status_name: {
+                equals: 'Confirmed',
+                mode: 'insensitive',
+              },
+            },
+          },
+        },
         select: {
           price: true,
           quantity: true,
         },
       }),
 
+      this.prisma.orders.count({
+        where: {
+          order_statuses: {
+            status_name: {
+              equals: 'Confirmed',
+              mode: 'insensitive',
+            },
+          },
+        },
+      }),
+
       this.prisma.shipping_zones.count(),
-
-      this.prisma.shipping_zones.count({
-        where: { active: true },
-      }),
-
-      this.prisma.shipping_zones.count({
-        where: { active: false },
-      }),
+      this.prisma.shipping_zones.count({ where: { active: true } }),
+      this.prisma.shipping_zones.count({ where: { active: false } }),
     ]);
 
-    const totalRevenue = orderItems.reduce(
+    const totalRevenue = totalRevenueAgg.reduce(
       (sum, item) => sum + Number(item.price) * item.quantity,
       0,
     );
 
     return {
       totalOrders,
+      todayOrders,
       pendingOrders,
       totalProducts,
+      confirmedOrders,
       publishedProducts,
       draftProducts,
       outOfStockProducts,

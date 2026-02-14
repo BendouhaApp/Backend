@@ -110,6 +110,9 @@ export class AdminDashboardService {
       select: {
         id: true,
         created_at: true,
+        customer_first_name: true,
+        customer_last_name: true,
+        customer_phone: true,
         customers: {
           select: {
             first_name: true,
@@ -136,6 +139,9 @@ export class AdminDashboardService {
     return orders.map((order) => ({
       id: order.id,
       created_at: order.created_at.toISOString(),
+      customer_first_name: order.customer_first_name,
+      customer_last_name: order.customer_last_name,
+      customer_phone: order.customer_phone,
       customers: order.customers,
       order_statuses: order.order_statuses,
       order_items: order.order_items.map((item) => ({

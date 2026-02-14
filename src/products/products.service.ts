@@ -169,6 +169,8 @@ export class ProductsService {
     return product;
   }
 
+  // Only showing the updated findAll method - replace this method in your existing file
+
   async findAll({
     page,
     limit,
@@ -206,10 +208,21 @@ export class ProductsService {
       where.published = false;
     }
 
+    // Enhanced category filtering: include products from selected category AND its subcategories
     if (categoryId) {
+      const categoryIds = [categoryId];
+
+      // Get all subcategories
+      const subcategories = await this.prisma.categories.findMany({
+        where: { parent_id: categoryId },
+        select: { id: true },
+      });
+
+      subcategories.forEach((sub) => categoryIds.push(sub.id));
+
       where.product_categories = {
         some: {
-          category_id: categoryId,
+          category_id: { in: categoryIds },
         },
       };
     }

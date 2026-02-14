@@ -60,9 +60,6 @@ export class AdminsLogsService {
         { description: { contains: term, mode: 'insensitive' } },
       ];
 
-      // Search within related staff account (admin) safely.
-      // Prisma requires relation filters to use `is` for 1:1 relations,
-      // so we push separate OR branches for each searchable field.
       or.push(
         {
           staff_accounts: {
@@ -87,7 +84,6 @@ export class AdminsLogsService {
         },
       );
 
-      // Safe enum search: map free text to valid enum values first
       const matchingActions = Object.values(AdminAction).filter((a) =>
         a.toLowerCase().includes(termLower),
       );
@@ -105,27 +101,31 @@ export class AdminsLogsService {
       where.OR = or;
     }
 
-    // Action filter
     if (actions?.length) where.action = { in: actions };
-
-    // Entity filter
     if (entities?.length) where.entity = { in: entities };
 
-    // Date filtering (frontend sends from/to)
+    // Date filtering
     if (from && to) {
       const fromDate = new Date(from);
       const toDate = new Date(to);
 
       if (!isNaN(fromDate.getTime()) && !isNaN(toDate.getTime())) {
-        where.created_at = { gte: fromDate, lte: toDate };
+        where.created_at = {
+          gte: fromDate,
+          lte: toDate,
+        };
       }
     } else if (date) {
-      // backward compat if you ever use ?date=YYYY-MM-DD
       const start = new Date(date);
       start.setHours(0, 0, 0, 0);
+
       const end = new Date(date);
       end.setHours(23, 59, 59, 999);
-      where.created_at = { gte: start, lte: end };
+
+      where.created_at = {
+        gte: start,
+        lte: end,
+      };
     }
 
     const [items, total] = await Promise.all([
@@ -148,29 +148,31 @@ export class AdminsLogsService {
       this.prisma.admins_logs.count({ where }),
     ]);
 
-    // Stats (last 24h but still respecting current filters)
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
 
-    const statsWhere = {
-      AND: [where, { created_at: { gte: yesterday } }],
+    const statsWhere: any = {
+      ...where,
+      created_at: {
+        ...(where.created_at ?? {}),
+        gte: yesterday,
+      },
     };
 
-    const [last24hCount, actionRows] = await Promise.all([
+    const [last24hCount, actionCounts] = await Promise.all([
       this.prisma.admins_logs.count({ where: statsWhere }),
-      this.prisma.admins_logs.findMany({
+
+      this.prisma.admins_logs.groupBy({
+        by: ['action'],
         where,
-        select: { action: true },
+        _count: {
+          action: true,
+        },
       }),
     ]);
 
-    const actionCountsObj = actionRows.reduce(
-      (acc: Record<string, number>, item) => {
-        const key = item.action;
-        acc[key] = (acc[key] ?? 0) + 1;
-        return acc;
-      },
-      {},
+    const actionCountsObj = Object.fromEntries(
+      actionCounts.map((a) => [a.action, a._count.action]),
     );
 
     return {

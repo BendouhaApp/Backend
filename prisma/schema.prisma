@@ -191,25 +191,25 @@ model orders {
   coupon_id                     String?         @db.Uuid
   customer_id                   String?         @db.Uuid
   order_status_id               String?         @db.Uuid
-  customer_first_name           String @db.VarChar(100)
-  customer_last_name            String @db.VarChar(100)
-  customer_phone                String @db.VarChar(255)
-  customer_wilaya               String?         @db.VarChar(255)
-  delivery_type                 String?         @db.VarChar(20)
-  shipping_zone_id              Int?
-  shipping_price                Decimal?        @db.Decimal(10, 2)
-  total_price                   Decimal?        @db.Decimal(10, 2)
   order_approved_at             DateTime?       @db.Timestamptz(6)
   order_delivered_carrier_date  DateTime?       @db.Timestamptz(6)
   order_delivered_customer_date DateTime?       @db.Timestamptz(6)
   created_at                    DateTime        @default(now()) @db.Timestamptz(6)
   updated_by                    String?         @db.Uuid
+  customer_phone                String          @db.VarChar(255)
+  customer_wilaya               String?         @db.VarChar(255)
+  delivery_type                 String?         @db.VarChar(20)
+  shipping_price                Decimal?        @db.Decimal(10, 2)
+  shipping_zone_id              Int?
+  total_price                   Decimal?        @db.Decimal(10, 2)
+  customer_first_name           String          @db.VarChar(100)
+  customer_last_name            String          @db.VarChar(100)
   order_items                   order_items[]
   coupons                       coupons?        @relation(fields: [coupon_id], references: [id], onUpdate: NoAction)
   customers                     customers?      @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   order_statuses                order_statuses? @relation(fields: [order_status_id], references: [id], onUpdate: NoAction)
-  staff_accounts                staff_accounts? @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   shipping_zones                shipping_zones? @relation(fields: [shipping_zone_id], references: [id])
+  staff_accounts                staff_accounts? @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([customer_id], map: "idx_order_customer_id")
 }
@@ -313,6 +313,11 @@ model products {
   updated_at                                         DateTime                @default(now()) @db.Timestamptz(6)
   created_by                                         String?                 @db.Uuid
   updated_by                                         String?                 @db.Uuid
+  angle                                              Int                     @default(60)
+  cct                                                Int                     @default(3000)
+  cri                                                Int                     @default(90)
+  lumen                                              Int                     @default(800)
+  power                                              Decimal                 @default(10) @db.Decimal
   card_items                                         card_items[]
   gallery                                            gallery[]
   order_items                                        order_items[]
@@ -327,11 +332,6 @@ model products {
   sells                                              sells?
   variant_options                                    variant_options[]
   variants                                           variants[]
-  cct                                                Int                     @default(3000)
-  lumen                                              Int                     @default(800)
-  cri                                                Int                     @default(90)
-  power                                              Decimal                 @default(10) @db.Decimal
-  angle                                              Int                     @default(60)
 
   @@index([published], map: "idx_product_publish")
 }
@@ -372,7 +372,7 @@ model room_obstacles {
 model roles {
   id             Int              @id @default(autoincrement())
   role_name      String           @db.VarChar(255)
-  privileges     String[]
+  permissions    String[]
   staff_accounts staff_accounts[]
 }
 
@@ -410,19 +410,19 @@ model shipping_rates {
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model shipping_zones {
   id                                                       Int                      @id @default(autoincrement())
-  name                                                     String                   @unique @db.VarChar(255) // important: internal key should be unique
+  name                                                     String                   @unique @db.VarChar(255)
   display_name                                             String                   @db.VarChar(255)
-  active                                                   Boolean                  @default(true) // your UI defaults to true
+  active                                                   Boolean                  @default(true)
   free_shipping                                            Boolean                  @default(false)
-  home_delivery_enabled                                    Boolean                  @default(true)
-  home_delivery_price                                      Decimal                  @default(0) @db.Decimal(10, 2)
-  office_delivery_enabled                                  Boolean                  @default(true)
-  office_delivery_price                                    Decimal                  @default(0) @db.Decimal(10, 2)
   rate_type                                                String?                  @db.VarChar(64)
   created_at                                               DateTime                 @default(now()) @db.Timestamptz(6)
   updated_at                                               DateTime                 @updatedAt @db.Timestamptz(6)
   created_by                                               String?                  @db.Uuid
   updated_by                                               String?                  @db.Uuid
+  home_delivery_enabled                                    Boolean                  @default(true)
+  home_delivery_price                                      Decimal                  @default(0) @db.Decimal(10, 2)
+  office_delivery_enabled                                  Boolean                  @default(true)
+  office_delivery_price                                    Decimal                  @default(0) @db.Decimal(10, 2)
   orders                                                   orders[]
   shipping_country_zones                                   shipping_country_zones[]
   shipping_rates                                           shipping_rates[]
@@ -453,58 +453,81 @@ model slideshows {
 }
 
 model staff_accounts {
-  id                                                             String           @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id                                                             String                 @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   role_id                                                        Int?
-  first_name                                                     String           @db.VarChar(100)
-  last_name                                                      String           @db.VarChar(100)
-  phone_number                                                   String?          @db.VarChar(100)
-  username                                                       String           @unique @db.VarChar(255)
+  first_name                                                     String                 @db.VarChar(100)
+  last_name                                                      String                 @db.VarChar(100)
+  phone_number                                                   String?                @db.VarChar(100)
   password_hash                                                  String
-  active                                                         Boolean?         @default(true)
+  active                                                         Boolean?               @default(true)
   image                                                          String?
   placeholder                                                    String?
-  created_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
-  updated_at                                                     DateTime         @default(now()) @db.Timestamptz(6)
-  created_by                                                     String?          @db.Uuid
-  updated_by                                                     String?          @db.Uuid
-  attributes_attributes_created_byTostaff_accounts               attributes[]     @relation("attributes_created_byTostaff_accounts")
-  attributes_attributes_updated_byTostaff_accounts               attributes[]     @relation("attributes_updated_byTostaff_accounts")
-  categories_categories_created_byTostaff_accounts               categories[]     @relation("categories_created_byTostaff_accounts")
-  categories_categories_updated_byTostaff_accounts               categories[]     @relation("categories_updated_byTostaff_accounts")
-  coupons_coupons_created_byTostaff_accounts                     coupons[]        @relation("coupons_created_byTostaff_accounts")
-  coupons_coupons_updated_byTostaff_accounts                     coupons[]        @relation("coupons_updated_byTostaff_accounts")
-  notifications                                                  notifications[]
-  order_statuses_order_statuses_created_byTostaff_accounts       order_statuses[] @relation("order_statuses_created_byTostaff_accounts")
-  order_statuses_order_statuses_updated_byTostaff_accounts       order_statuses[] @relation("order_statuses_updated_byTostaff_accounts")
-  orders                                                         orders[]
-  products_products_created_byTostaff_accounts                   products[]       @relation("products_created_byTostaff_accounts")
-  products_products_updated_byTostaff_accounts                   products[]       @relation("products_updated_byTostaff_accounts")
-  shipping_zones_shipping_zones_created_byTostaff_accounts       shipping_zones[] @relation("shipping_zones_created_byTostaff_accounts")
-  shipping_zones_shipping_zones_updated_byTostaff_accounts       shipping_zones[] @relation("shipping_zones_updated_byTostaff_accounts")
-  slideshows_slideshows_created_byTostaff_accounts               slideshows[]     @relation("slideshows_created_byTostaff_accounts")
-  slideshows_slideshows_updated_byTostaff_accounts               slideshows[]     @relation("slideshows_updated_byTostaff_accounts")
-  staff_accounts_staff_accounts_created_byTostaff_accounts       staff_accounts?  @relation("staff_accounts_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  other_staff_accounts_staff_accounts_created_byTostaff_accounts staff_accounts[] @relation("staff_accounts_created_byTostaff_accounts")
-  roles                                                          roles?           @relation(fields: [role_id], references: [id], onUpdate: NoAction)
-  staff_accounts_staff_accounts_updated_byTostaff_accounts       staff_accounts?  @relation("staff_accounts_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  other_staff_accounts_staff_accounts_updated_byTostaff_accounts staff_accounts[] @relation("staff_accounts_updated_byTostaff_accounts")
-  suppliers_suppliers_created_byTostaff_accounts                 suppliers[]      @relation("suppliers_created_byTostaff_accounts")
-  suppliers_suppliers_updated_byTostaff_accounts                 suppliers[]      @relation("suppliers_updated_byTostaff_accounts")
-  tags_tags_created_byTostaff_accounts                           tags[]           @relation("tags_created_byTostaff_accounts")
-  tags_tags_updated_byTostaff_accounts                           tags[]           @relation("tags_updated_byTostaff_accounts")
+  created_at                                                     DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                                                     DateTime               @default(now()) @db.Timestamptz(6)
+  created_by                                                     String?                @db.Uuid
+  updated_by                                                     String?                @db.Uuid
+  username                                                       String                 @unique @db.VarChar(255)
+  failed_login_attempts                                          Int                    @default(0)
+  last_failed_login_at                                           DateTime?
+  last_login_at                                                  DateTime?
+  locked_until                                                   DateTime?
+  token_version                                                  Int                    @default(0)
+  admin_refresh_tokens                                           admin_refresh_tokens[]
   admins_logs                                                    admins_logs[]
+  attributes_attributes_created_byTostaff_accounts               attributes[]           @relation("attributes_created_byTostaff_accounts")
+  attributes_attributes_updated_byTostaff_accounts               attributes[]           @relation("attributes_updated_byTostaff_accounts")
+  categories_categories_created_byTostaff_accounts               categories[]           @relation("categories_created_byTostaff_accounts")
+  categories_categories_updated_byTostaff_accounts               categories[]           @relation("categories_updated_byTostaff_accounts")
+  coupons_coupons_created_byTostaff_accounts                     coupons[]              @relation("coupons_created_byTostaff_accounts")
+  coupons_coupons_updated_byTostaff_accounts                     coupons[]              @relation("coupons_updated_byTostaff_accounts")
+  notifications                                                  notifications[]
+  order_statuses_order_statuses_created_byTostaff_accounts       order_statuses[]       @relation("order_statuses_created_byTostaff_accounts")
+  order_statuses_order_statuses_updated_byTostaff_accounts       order_statuses[]       @relation("order_statuses_updated_byTostaff_accounts")
+  orders                                                         orders[]
+  products_products_created_byTostaff_accounts                   products[]             @relation("products_created_byTostaff_accounts")
+  products_products_updated_byTostaff_accounts                   products[]             @relation("products_updated_byTostaff_accounts")
+  shipping_zones_shipping_zones_created_byTostaff_accounts       shipping_zones[]       @relation("shipping_zones_created_byTostaff_accounts")
+  shipping_zones_shipping_zones_updated_byTostaff_accounts       shipping_zones[]       @relation("shipping_zones_updated_byTostaff_accounts")
+  slideshows_slideshows_created_byTostaff_accounts               slideshows[]           @relation("slideshows_created_byTostaff_accounts")
+  slideshows_slideshows_updated_byTostaff_accounts               slideshows[]           @relation("slideshows_updated_byTostaff_accounts")
+  staff_accounts_staff_accounts_created_byTostaff_accounts       staff_accounts?        @relation("staff_accounts_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_staff_accounts_staff_accounts_created_byTostaff_accounts staff_accounts[]       @relation("staff_accounts_created_byTostaff_accounts")
+  roles                                                          roles?                 @relation(fields: [role_id], references: [id], onUpdate: NoAction)
+  staff_accounts_staff_accounts_updated_byTostaff_accounts       staff_accounts?        @relation("staff_accounts_updated_byTostaff_accounts", fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_staff_accounts_staff_accounts_updated_byTostaff_accounts staff_accounts[]       @relation("staff_accounts_updated_byTostaff_accounts")
+  suppliers_suppliers_created_byTostaff_accounts                 suppliers[]            @relation("suppliers_created_byTostaff_accounts")
+  suppliers_suppliers_updated_byTostaff_accounts                 suppliers[]            @relation("suppliers_updated_byTostaff_accounts")
+  tags_tags_created_byTostaff_accounts                           tags[]                 @relation("tags_created_byTostaff_accounts")
+  tags_tags_updated_byTostaff_accounts                           tags[]                 @relation("tags_updated_byTostaff_accounts")
+
+  @@index([role_id])
+}
+
+model admin_refresh_tokens {
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  admin_id       String         @db.Uuid
+  token_hash     String         @unique
+  expires_at     DateTime       @db.Timestamptz(6)
+  revoked        Boolean        @default(false)
+  ip_address     String?
+  user_agent     String?
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
+  staff_accounts staff_accounts @relation(fields: [admin_id], references: [id], onDelete: Cascade)
+
+  @@index([admin_id])
+  @@index([expires_at])
+  @@index([revoked])
 }
 
 model admins_logs {
-  id          String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
-  admin_id    String      @db.Uuid
-  action      AdminAction
-  entity      AdminEntity
-  entity_id   String
-  description String?
-  metadata    Json?
-  created_at  DateTime    @default(now()) @db.Timestamptz(6)
-
+  id             String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  admin_id       String         @db.Uuid
+  action         AdminAction
+  entity         AdminEntity
+  entity_id      String
+  description    String?
+  metadata       Json?
+  created_at     DateTime       @default(now()) @db.Timestamptz(6)
   staff_accounts staff_accounts @relation(fields: [admin_id], references: [id], onDelete: Cascade)
 
   @@index([admin_id])
@@ -594,6 +617,7 @@ enum AdminAction {
   CONFIRM
   CANCEL
   LOGIN
+  LOGIN_FAILED
 }
 
 enum AdminEntity {

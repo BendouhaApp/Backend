@@ -12,7 +12,6 @@ import { CartModule } from './cart/cart.module';
 import { CartItemsModule } from './cart-items/cart-items.module';
 import { AdminsLogsModule } from './admins-logs/admins-logs.module';
 import { AdminAuthModule } from './admin-auth/admin-auth.module';
-import { ThrottlerModule } from '@nestjs/throttler';
 import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { AdminWilayaModule } from './admin-wilaya/admin-wilaya.module';
 import { WilayasModule } from './wilayas/wilayas.module';
@@ -26,14 +25,12 @@ import { RoomsModule } from './rooms/rooms.module';
     ServeStaticModule.forRoot({
       rootPath: join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
-    }),
-
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60,
-        limit: 5,
+      serveStaticOptions: {
+        setHeaders: (res) => {
+          res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
       },
-    ]),
+    }),
 
     PrismaModule,
     AdminsModule,

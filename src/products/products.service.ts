@@ -35,10 +35,75 @@ export class ProductsService {
     }
   }
 
+  private ensureLeadingSlash(mediaPath: string) {
+    return mediaPath.startsWith('/') ? mediaPath : `/${mediaPath}`;
+  }
+
+  private isHttpUrl(mediaPath: string) {
+    return /^https?:\/\//i.test(mediaPath);
+  }
+
+  private mediaFileExists(mediaPath?: string | null) {
+    if (!mediaPath) return false;
+    if (this.isHttpUrl(mediaPath)) return true;
+
+    const normalized = this.ensureLeadingSlash(mediaPath);
+    const safePath = normalized.replace(/^\/+/, '');
+
+    if (!safePath.startsWith('uploads/')) {
+      return true;
+    }
+
+    return fs.existsSync(path.join(process.cwd(), safePath));
+  }
+
+  private normalizeStoredMediaPath(mediaPath: string) {
+    return this.isHttpUrl(mediaPath)
+      ? mediaPath
+      : this.ensureLeadingSlash(mediaPath);
+  }
+
+  private resolveGalleryPaths(gallery: Array<{ image?: string | null }> = []) {
+    const unique = new Set<string>();
+    const paths: string[] = [];
+
+    for (const item of gallery) {
+      const image = item?.image?.trim();
+      if (!image || unique.has(image) || !this.mediaFileExists(image)) continue;
+      unique.add(image);
+      paths.push(this.normalizeStoredMediaPath(image));
+    }
+
+    return paths;
+  }
+
+  private resolveThumbnailPath(
+    gallery: Array<{ image?: string | null; is_thumbnail?: boolean | null }> =
+      [],
+    fallbackGallery: string[] = [],
+  ) {
+    const preferred = gallery.find((g) => g.is_thumbnail)?.image?.trim();
+    if (preferred && this.mediaFileExists(preferred)) {
+      return this.normalizeStoredMediaPath(preferred);
+    }
+
+    return fallbackGallery[0] ?? null;
+  }
+
+  private toPublicMediaUrl(mediaPath: string, baseUrl: string) {
+    return this.isHttpUrl(mediaPath) ? mediaPath : `${baseUrl}${mediaPath}`;
+  }
+
   // Normalize the public product payload to keep front-end consumers stable.
   private toPublicProduct(p: any, baseUrl: string) {
-    const thumbnail =
-      p.gallery?.find((g: any) => g.is_thumbnail)?.image ?? null;
+    const galleryPaths = this.resolveGalleryPaths(p.gallery ?? []);
+    const thumbnailPath = this.resolveThumbnailPath(p.gallery ?? [], galleryPaths);
+    const thumbnailUrl = thumbnailPath
+      ? this.toPublicMediaUrl(thumbnailPath, baseUrl)
+      : null;
+    const galleryUrls = galleryPaths.map((image) =>
+      this.toPublicMediaUrl(image, baseUrl),
+    );
     const categories = (p.product_categories ?? [])
       .map((pc: any) => pc.categories)
       .filter(Boolean)
@@ -46,7 +111,6 @@ export class ProductsService {
         id: c.id,
         category_name: c.category_name,
         parent_id: c.parent_id,
-        image: c.image ?? null,
       }));
 
     const categoryLabel =
@@ -67,10 +131,10 @@ export class ProductsService {
       categories,
       description: p.short_description,
       fullDescription: p.product_description,
-      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
-      thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
-      images: (p.gallery ?? []).map((g: any) => `${baseUrl}${g.image}`),
-      gallery: (p.gallery ?? []).map((g: any) => `${baseUrl}${g.image}`),
+      image: thumbnailUrl ?? '/placeholder.jpg',
+      thumbnail: thumbnailUrl,
+      images: galleryUrls,
+      gallery: galleryUrls,
       inStock: p.quantity > 0,
       quantity: p.quantity,
       rating: null,
@@ -243,11 +307,16 @@ export class ProductsService {
       this.prisma.products.count({ where }),
     ]);
 
-    const data = items.map((p) => ({
-      ...p,
-      thumbnail: p.gallery.find((g) => g.is_thumbnail)?.image ?? null,
-      gallery: p.gallery.map((g) => g.image),
-    }));
+    const data = items.map((p) => {
+      const galleryPaths = this.resolveGalleryPaths(p.gallery ?? []);
+      const thumbnailPath = this.resolveThumbnailPath(p.gallery ?? [], galleryPaths);
+
+      return {
+        ...p,
+        thumbnail: thumbnailPath,
+        gallery: galleryPaths,
+      };
+    });
 
     return {
       data,
@@ -348,13 +417,16 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    const thumbnail =
-      product.gallery.find((g) => g.is_thumbnail)?.image ?? null;
+    const galleryPaths = this.resolveGalleryPaths(product.gallery ?? []);
+    const thumbnailPath = this.resolveThumbnailPath(
+      product.gallery ?? [],
+      galleryPaths,
+    );
 
     return {
       ...product,
-      thumbnail,
-      gallery: product.gallery.map((g) => g.image),
+      thumbnail: thumbnailPath,
+      gallery: galleryPaths,
     };
   }
 

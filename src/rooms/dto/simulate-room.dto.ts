@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -21,6 +22,10 @@ export class RoomDimensionsDto {
   @IsNumber()
   @Min(1)
   height: number;
+
+  @IsOptional()
+  @IsIn(['m'])
+  unit?: 'm';
 }
 
 export class LightingProductDto {

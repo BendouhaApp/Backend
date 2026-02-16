@@ -148,18 +148,19 @@ export class ProductsController {
   @Get('public')
   async findPublic(
     @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('start') start?: string,
   ) {
+    const parsedPage =
+      page !== undefined && page !== null ? Number(page) : undefined;
+
     const parsedLimit =
       limit !== undefined && limit !== null ? Number(limit) : undefined;
-    const parsedStart =
-      start !== undefined && start !== null ? Number(start) : undefined;
 
     return this.productsService.findPublic({
       categoryId,
+      page: Number.isFinite(parsedPage) ? parsedPage : undefined,
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
-      start: Number.isFinite(parsedStart) ? parsedStart : undefined,
     });
   }
 

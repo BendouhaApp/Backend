@@ -27,8 +27,16 @@ export class ProductsService {
   private deleteFile(filePath?: string | null) {
     if (!filePath) return;
 
+    if (/^https?:\/\//i.test(filePath)) return;
+
     const safePath = filePath.replace(/^\/+/, '');
-    const fullPath = path.join(process.cwd(), safePath);
+
+    if (!safePath.startsWith('uploads/')) return;
+
+    const uploadsDir = path.resolve(process.cwd(), 'uploads');
+    const fullPath = path.resolve(process.cwd(), safePath);
+
+    if (!fullPath.startsWith(uploadsDir)) return;
 
     if (fs.existsSync(fullPath)) {
       fs.unlinkSync(fullPath);
@@ -78,8 +86,10 @@ export class ProductsService {
   }
 
   private resolveThumbnailPath(
-    gallery: Array<{ image?: string | null; is_thumbnail?: boolean | null }> =
-      [],
+    gallery: Array<{
+      image?: string | null;
+      is_thumbnail?: boolean | null;
+    }> = [],
     fallbackGallery: string[] = [],
   ) {
     const preferred = gallery.find((g) => g.is_thumbnail)?.image?.trim();
@@ -97,7 +107,10 @@ export class ProductsService {
   // Normalize the public product payload to keep front-end consumers stable.
   private toPublicProduct(p: any, baseUrl: string) {
     const galleryPaths = this.resolveGalleryPaths(p.gallery ?? []);
-    const thumbnailPath = this.resolveThumbnailPath(p.gallery ?? [], galleryPaths);
+    const thumbnailPath = this.resolveThumbnailPath(
+      p.gallery ?? [],
+      galleryPaths,
+    );
     const thumbnailUrl = thumbnailPath
       ? this.toPublicMediaUrl(thumbnailPath, baseUrl)
       : null;
@@ -309,7 +322,10 @@ export class ProductsService {
 
     const data = items.map((p) => {
       const galleryPaths = this.resolveGalleryPaths(p.gallery ?? []);
-      const thumbnailPath = this.resolveThumbnailPath(p.gallery ?? [], galleryPaths);
+      const thumbnailPath = this.resolveThumbnailPath(
+        p.gallery ?? [],
+        galleryPaths,
+      );
 
       return {
         ...p,
@@ -331,15 +347,16 @@ export class ProductsService {
 
   async findPublic({
     categoryId,
+    page,
     limit,
-    start,
   }: {
     categoryId?: string;
+    page?: number;
     limit?: number;
-    start?: number;
   } = {}) {
-    const safeStart = Math.max(0, Number(start) || 0);
-    const safeLimit = Math.min(50, Math.max(1, Number(limit) || 9));
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 9));
+    const skip = (safePage - 1) * safeLimit;
 
     const categoryFilterIds: string[] = [];
 
@@ -347,7 +364,7 @@ export class ProductsService {
       categoryFilterIds.push(categoryId);
 
       const children = await this.prisma.categories.findMany({
-        where: { parent_id: categoryId, active: true },
+        where: { parent_id: categoryId },
         select: { id: true },
       });
 
@@ -358,9 +375,6 @@ export class ProductsService {
 
     const where: any = {
       published: true,
-      NOT: {
-        AND: [{ quantity: 0 }, { disable_out_of_stock: true }],
-      },
     };
 
     if (categoryFilterIds.length > 0) {
@@ -376,7 +390,7 @@ export class ProductsService {
     const [products, total] = await this.prisma.$transaction([
       this.prisma.products.findMany({
         where,
-        skip: safeStart,
+        skip,
         take: safeLimit,
         include: {
           gallery: true,
@@ -392,9 +406,9 @@ export class ProductsService {
     return {
       data: products.map((p) => this.toPublicProduct(p, baseUrl)),
       meta: {
-        total,
+        page: safePage,
         limit: safeLimit,
-        start: safeStart,
+        total,
         totalPages: Math.ceil(total / safeLimit),
       },
     };

@@ -5,8 +5,45 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CartService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private ensureLeadingSlash(mediaPath: string) {
+    return mediaPath.startsWith('/') ? mediaPath : `/${mediaPath}`;
+  }
+
+  private isHttpUrl(mediaPath: string) {
+    return /^https?:\/\//i.test(mediaPath);
+  }
+
+  private toPublicMediaUrl(mediaPath: string, baseUrl: string) {
+    if (this.isHttpUrl(mediaPath)) return mediaPath;
+    if (!mediaPath.startsWith('/uploads/')) return mediaPath;
+    return `${baseUrl}${mediaPath}`;
+  }
+
   private toCartProduct(p: any, baseUrl: string) {
     const thumbnail = p.gallery?.find((g: any) => g.is_thumbnail)?.image ?? null;
+    const categories = (p.product_categories ?? [])
+      .map((pc: any) => pc.categories)
+      .filter(Boolean);
+    const subCategory = categories.find((c: any) => c.parent_id);
+    const mainCategory = categories.find((c: any) => !c.parent_id);
+    const categoryLabel =
+      subCategory?.category_name ??
+      categories[0]?.category_name ??
+      p.product_type ??
+      'Uncategorized';
+    const categoryFallbackPath = this.ensureLeadingSlash(
+      subCategory?.image ??
+        mainCategory?.image ??
+        '/images/categories/default-subcategory.svg',
+    );
+    const categoryFallbackUrl = this.toPublicMediaUrl(
+      categoryFallbackPath,
+      baseUrl,
+    );
+    const thumbnailUrl = thumbnail
+      ? this.toPublicMediaUrl(this.ensureLeadingSlash(thumbnail), baseUrl)
+      : null;
+
     return {
       id: p.id,
       name: p.product_name,
@@ -15,9 +52,9 @@ export class CartService {
       originalPrice: p.compare_price
         ? parseFloat(p.compare_price.toString())
         : null,
-      category: p.product_type || 'Uncategorized',
-      image: thumbnail ? `${baseUrl}${thumbnail}` : '/placeholder.jpg',
-      thumbnail: thumbnail ? `${baseUrl}${thumbnail}` : null,
+      category: categoryLabel,
+      image: thumbnailUrl ?? categoryFallbackUrl,
+      thumbnail: thumbnailUrl ?? categoryFallbackUrl,
       inStock: p.quantity > 0,
       quantity: p.quantity,
     };
@@ -32,6 +69,9 @@ export class CartService {
             products: {
               include: {
                 gallery: true,
+                product_categories: {
+                  include: { categories: true },
+                },
               },
             },
           },
@@ -48,6 +88,9 @@ export class CartService {
               products: {
                 include: {
                   gallery: true,
+                  product_categories: {
+                    include: { categories: true },
+                  },
                 },
               },
             },

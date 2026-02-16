@@ -24,6 +24,35 @@ export class ProductsService {
     return Array.from(new Set(normalized));
   }
 
+  private normalizeProductText(value: unknown): string {
+    let normalized = String(value ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/\u00c3\u00a9/g, '\u00e9')
+      .replace(/\u00c2\u00b0/g, '\u00b0')
+      .replace(/\u00c2/g, '');
+
+    const typoFixes: Array<[RegExp, string]> = [
+      [/\bapplqiue\b/gi, 'applique'],
+      [/\balluminium\b/gi, 'aluminium'],
+      [/\bobdjectif\b/gi, 'objectif'],
+      [/\bruning\b/gi, 'running'],
+      [/\badesif\b/gi, 'adh\u00e9sif'],
+      [/\bdetecteur\b/gi, 'd\u00e9tecteur'],
+      [/\bantene\b/gi, 'antenne'],
+      [/\bicline\b/gi, 'inclin\u00e9'],
+      [/\biclin\u00e9\b/gi, 'inclin\u00e9'],
+      [/\betanche\b/gi, '\u00e9tanche'],
+    ];
+
+    for (const [pattern, replacement] of typoFixes) {
+      normalized = normalized.replace(pattern, replacement);
+    }
+
+    if (!normalized) return normalized;
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }
+
   private deleteFile(filePath?: string | null) {
     if (!filePath) return;
 
@@ -101,7 +130,9 @@ export class ProductsService {
   }
 
   private toPublicMediaUrl(mediaPath: string, baseUrl: string) {
-    return this.isHttpUrl(mediaPath) ? mediaPath : `${baseUrl}${mediaPath}`;
+    if (this.isHttpUrl(mediaPath)) return mediaPath;
+    if (!mediaPath.startsWith('/uploads/')) return mediaPath;
+    return `${baseUrl}${mediaPath}`;
   }
 
   // Normalize the public product payload to keep front-end consumers stable.
@@ -124,7 +155,20 @@ export class ProductsService {
         id: c.id,
         category_name: c.category_name,
         parent_id: c.parent_id,
+        image: c.image,
       }));
+
+    const subCategory = categories.find((c: any) => c.parent_id);
+    const mainCategory = categories.find((c: any) => !c.parent_id);
+    const categoryFallbackPath = this.normalizeStoredMediaPath(
+      subCategory?.image ??
+        mainCategory?.image ??
+        '/images/categories/default-subcategory.svg',
+    );
+    const categoryFallbackUrl = this.toPublicMediaUrl(
+      categoryFallbackPath,
+      baseUrl,
+    );
 
     const categoryLabel =
       categories.find((c: any) => c.parent_id)?.category_name ??
@@ -144,8 +188,8 @@ export class ProductsService {
       categories,
       description: p.short_description,
       fullDescription: p.product_description,
-      image: thumbnailUrl ?? '/placeholder.jpg',
-      thumbnail: thumbnailUrl,
+      image: thumbnailUrl ?? categoryFallbackUrl,
+      thumbnail: thumbnailUrl ?? categoryFallbackUrl,
       images: galleryUrls,
       gallery: galleryUrls,
       inStock: p.quantity > 0,
@@ -167,14 +211,19 @@ export class ProductsService {
   }
 
   async create(dto: any, adminId: string) {
-    const slug = slugify(dto.slug || dto.product_name, { lower: true });
+    const productName = this.normalizeProductText(dto.product_name);
+    const shortDescription = this.normalizeProductText(dto.short_description);
+    const productDescription = this.normalizeProductText(
+      dto.product_description,
+    );
+    const slug = slugify(dto.slug || productName, { lower: true });
     const rawCategoryIds = dto.category_ids ?? dto['category_ids[]'];
     const categoryIds = this.normalizeCategoryIds(rawCategoryIds);
 
     const product = await this.prisma.products.create({
       data: {
         slug,
-        product_name: dto.product_name,
+        product_name: productName,
         sku: dto.sku || null,
 
         sale_price: Number(dto.sale_price ?? 0),
@@ -185,8 +234,8 @@ export class ProductsService {
 
         quantity: Number(dto.quantity ?? 0),
 
-        short_description: dto.short_description,
-        product_description: dto.product_description,
+        short_description: shortDescription,
+        product_description: productDescription,
         product_type: dto.product_type || null,
 
         published: dto.published === true || dto.published === 'true',
@@ -482,11 +531,14 @@ export class ProductsService {
 
     if (finalSlug) data.slug = finalSlug;
 
-    if (has('product_name')) data.product_name = dto.product_name;
+    if (has('product_name'))
+      data.product_name = this.normalizeProductText(dto.product_name);
     if (has('short_description'))
-      data.short_description = dto.short_description;
+      data.short_description = this.normalizeProductText(dto.short_description);
     if (has('product_description'))
-      data.product_description = dto.product_description;
+      data.product_description = this.normalizeProductText(
+        dto.product_description,
+      );
 
     if (has('sku')) data.sku = dto.sku ? String(dto.sku) : null;
 

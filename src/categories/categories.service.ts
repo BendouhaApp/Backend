@@ -16,6 +16,10 @@ export class CategoriesService {
     private readonly adminsLogsService: AdminsLogsService,
   ) {}
 
+  private normalizeCategoryName(name: string) {
+    return name.trim().replace(/\s+/g, ' ').toUpperCase();
+  }
+
   async create(dto: CreateCategoryDto, adminId: string) {
     if (dto.parent_id) {
       const parent = await this.prisma.categories.findUnique({
@@ -33,7 +37,7 @@ export class CategoriesService {
 
     const category = await this.prisma.categories.create({
       data: {
-        category_name: dto.category_name,
+        category_name: this.normalizeCategoryName(dto.category_name),
         category_description: dto.category_description,
         parent_id: dto.parent_id,
         active: dto.active ?? true,
@@ -161,7 +165,9 @@ export class CategoriesService {
     const category = await this.prisma.categories.update({
       where: { id },
       data: {
-        category_name: dto.category_name,
+        category_name: dto.category_name
+          ? this.normalizeCategoryName(dto.category_name)
+          : undefined,
         category_description: dto.category_description,
         parent_id: dto.parent_id,
         active: dto.active,

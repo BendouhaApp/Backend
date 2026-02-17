@@ -75,18 +75,20 @@ export class OrdersService {
 
     let shippingPrice = 0;
 
-    if (!zone.free_shipping && !commune.free_shipping) {
-      if (deliveryType === 'office') {
-        if (!commune.office_delivery_enabled) {
-          throw new BadRequestException('Office delivery not available');
-        }
-        shippingPrice = Number(commune.office_delivery_price ?? 0);
-      } else {
-        if (!commune.home_delivery_enabled) {
-          throw new BadRequestException('Home delivery not available');
-        }
-        shippingPrice = Number(commune.home_delivery_price ?? 0);
+    if (deliveryType === 'office') {
+      if (!commune.office_delivery_enabled) {
+        throw new BadRequestException('Office delivery not available');
       }
+      shippingPrice = commune.free_shipping
+        ? 0
+        : Number(commune.office_delivery_price ?? 0);
+    } else {
+      if (!commune.home_delivery_enabled) {
+        throw new BadRequestException('Home delivery not available');
+      }
+      shippingPrice = commune.free_shipping
+        ? 0
+        : Number(commune.home_delivery_price ?? 0);
     }
 
     const itemsTotal = cart.card_items.reduce((sum, item) => {

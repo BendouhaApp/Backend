@@ -641,23 +641,34 @@ export class ProductsService {
 
     const q = search?.trim();
     if (q) {
-      where.OR = [
-        { product_name: { contains: q, mode: 'insensitive' } },
-        { sku: { contains: q, mode: 'insensitive' } },
-        { slug: { contains: q, mode: 'insensitive' } },
-        { short_description: { contains: q, mode: 'insensitive' } },
-        { product_description: { contains: q, mode: 'insensitive' } },
-        { product_type: { contains: q, mode: 'insensitive' } },
-        {
-          product_categories: {
-            some: {
-              categories: {
-                category_name: { contains: q, mode: 'insensitive' },
+      const tokens = Array.from(
+        new Set(
+          q
+            .split(/\s+/)
+            .map((token) => token.trim())
+            .filter(Boolean),
+        ),
+      );
+
+      where.AND = tokens.map((token) => ({
+        OR: [
+          { product_name: { contains: token, mode: 'insensitive' } },
+          { sku: { contains: token, mode: 'insensitive' } },
+          { slug: { contains: token, mode: 'insensitive' } },
+          { short_description: { contains: token, mode: 'insensitive' } },
+          { product_description: { contains: token, mode: 'insensitive' } },
+          { product_type: { contains: token, mode: 'insensitive' } },
+          {
+            product_categories: {
+              some: {
+                categories: {
+                  category_name: { contains: token, mode: 'insensitive' },
+                },
               },
             },
           },
-        },
-      ];
+        ],
+      }));
     }
 
     if (categoryFilterIds.length > 0) {

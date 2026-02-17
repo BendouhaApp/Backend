@@ -24,7 +24,39 @@ async function bootstrap() {
   );
 
   app.enableCors({
-    origin: config.get('CORS_ORIGINS')?.split(',') || ['http://localhost:5173'],
+    origin: (origin, callback) => {
+      const configuredOrigins = (config.get<string>('CORS_ORIGINS') || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+
+      const defaultOrigins = [
+        'http://localhost:5173',
+        'http://localhost:5174',
+        'http://localhost:5180',
+      ];
+
+      const allowList = configuredOrigins.length
+        ? configuredOrigins
+        : defaultOrigins;
+
+      // Allow non-browser requests (curl/postman/server-to-server)
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const isConfigured = allowList.includes(origin);
+      const isLocalhost = /^https?:\/\/localhost:\d+$/.test(origin);
+      const isLoopback = /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin);
+
+      if (isConfigured || isLocalhost || isLoopback) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [

@@ -32,6 +32,14 @@ export class CreateOrderDto {
   @IsInt()
   wilaya_id: number;
 
+  @ApiProperty({
+    example: 102,
+    description: 'Commune ID related to the selected wilaya',
+  })
+  @Type(() => Number)
+  @IsInt()
+  commune_id: number;
+
   @ApiPropertyOptional({
     example: 'home',
     description: 'Delivery type: home or office',

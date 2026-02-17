@@ -198,9 +198,11 @@ model orders {
   updated_by                    String?         @db.Uuid
   customer_phone                String          @db.VarChar(255)
   customer_wilaya               String?         @db.VarChar(255)
+  customer_commune              String?         @db.VarChar(255)
   delivery_type                 String?         @db.VarChar(20)
   shipping_price                Decimal?        @db.Decimal(10, 2)
   shipping_zone_id              Int?
+  shipping_commune_id           Int?
   total_price                   Decimal?        @db.Decimal(10, 2)
   customer_first_name           String          @db.VarChar(100)
   customer_last_name            String          @db.VarChar(100)
@@ -209,9 +211,11 @@ model orders {
   customers                     customers?      @relation(fields: [customer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   order_statuses                order_statuses? @relation(fields: [order_status_id], references: [id], onUpdate: NoAction)
   shipping_zones                shipping_zones? @relation(fields: [shipping_zone_id], references: [id])
+  shipping_communes             shipping_communes? @relation(fields: [shipping_commune_id], references: [id])
   staff_accounts                staff_accounts? @relation(fields: [updated_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@index([customer_id], map: "idx_order_customer_id")
+  @@index([shipping_commune_id], map: "idx_order_shipping_commune_id")
 }
 
 model product_attribute_values {
@@ -407,6 +411,27 @@ model shipping_rates {
   shipping_zones   shipping_zones @relation(fields: [shipping_zone_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+model shipping_communes {
+  id                    Int             @id @default(autoincrement())
+  shipping_zone_id      Int
+  name                  String          @db.VarChar(255)
+  display_name          String          @db.VarChar(255)
+  active                Boolean         @default(true)
+  free_shipping         Boolean         @default(false)
+  home_delivery_enabled Boolean         @default(true)
+  home_delivery_price   Decimal         @default(0) @db.Decimal(10, 2)
+  office_delivery_enabled Boolean       @default(true)
+  office_delivery_price Decimal         @default(0) @db.Decimal(10, 2)
+  created_at            DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime        @updatedAt @db.Timestamptz(6)
+  shipping_zones        shipping_zones  @relation(fields: [shipping_zone_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  orders                orders[]
+
+  @@unique([shipping_zone_id, name], map: "uq_shipping_communes_zone_name")
+  @@index([shipping_zone_id], map: "idx_shipping_communes_zone_id")
+  @@index([active], map: "idx_shipping_communes_active")
+}
+
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model shipping_zones {
   id                                                       Int                      @id @default(autoincrement())
@@ -424,6 +449,7 @@ model shipping_zones {
   office_delivery_enabled                                  Boolean                  @default(true)
   office_delivery_price                                    Decimal                  @default(0) @db.Decimal(10, 2)
   orders                                                   orders[]
+  shipping_communes                                        shipping_communes[]
   shipping_country_zones                                   shipping_country_zones[]
   shipping_rates                                           shipping_rates[]
   staff_accounts_shipping_zones_created_byTostaff_accounts staff_accounts?          @relation("shipping_zones_created_byTostaff_accounts", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)

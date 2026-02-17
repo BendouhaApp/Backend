@@ -10,6 +10,10 @@ export class WilayasService {
       where: { active: true },
       orderBy: { id: 'asc' },
       include: {
+        shipping_communes: {
+          where: { active: true },
+          orderBy: { display_name: 'asc' },
+        },
         shipping_rates: {
           orderBy: { min_value: 'asc' },
         },
@@ -27,6 +31,13 @@ export class WilayasService {
       return {
         ...rest,
         default_rate: defaultRate ? Number(defaultRate.price) : null,
+        home_delivery_price: Number(rest.home_delivery_price ?? 0),
+        office_delivery_price: Number(rest.office_delivery_price ?? 0),
+        communes: zone.shipping_communes.map((commune) => ({
+          ...commune,
+          home_delivery_price: Number(commune.home_delivery_price ?? 0),
+          office_delivery_price: Number(commune.office_delivery_price ?? 0),
+        })),
       };
     });
 

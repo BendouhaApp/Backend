@@ -45,6 +45,19 @@ export class OrdersService {
       throw new BadRequestException('Wilaya not found');
     }
 
+    const commune = await this.prisma.shipping_communes.findFirst({
+      where: {
+        id: dto.commune_id,
+        shipping_zone_id: dto.wilaya_id,
+      },
+    });
+
+    if (!commune || commune.active === false) {
+      throw new BadRequestException(
+        'Commune not found for the selected wilaya',
+      );
+    }
+
     const pendingStatus = await this.prisma.order_statuses.findFirst({
       where: {
         status_name: {
@@ -62,17 +75,17 @@ export class OrdersService {
 
     let shippingPrice = 0;
 
-    if (!zone.free_shipping) {
+    if (!zone.free_shipping && !commune.free_shipping) {
       if (deliveryType === 'office') {
-        if (!zone.office_delivery_enabled) {
+        if (!commune.office_delivery_enabled) {
           throw new BadRequestException('Office delivery not available');
         }
-        shippingPrice = Number(zone.office_delivery_price ?? 0);
+        shippingPrice = Number(commune.office_delivery_price ?? 0);
       } else {
-        if (!zone.home_delivery_enabled) {
+        if (!commune.home_delivery_enabled) {
           throw new BadRequestException('Home delivery not available');
         }
-        shippingPrice = Number(zone.home_delivery_price ?? 0);
+        shippingPrice = Number(commune.home_delivery_price ?? 0);
       }
     }
 
@@ -96,8 +109,10 @@ export class OrdersService {
         customer_last_name: dto.customer_last_name,
         customer_phone: dto.customer_phone,
         customer_wilaya: zone.display_name,
+        customer_commune: commune.display_name,
         delivery_type: deliveryType,
         shipping_zone_id: zone.id,
+        shipping_commune_id: commune.id,
         shipping_price: new Prisma.Decimal(shippingPrice),
         total_price: new Prisma.Decimal(totalPrice),
         order_items: {
@@ -114,6 +129,8 @@ export class OrdersService {
         },
         customers: true,
         order_statuses: true,
+        shipping_zones: true,
+        shipping_communes: true,
       },
     });
 
@@ -148,6 +165,7 @@ export class OrdersService {
           customers: true,
           order_statuses: true,
           shipping_zones: true,
+          shipping_communes: true,
           coupons: true,
         },
         orderBy: { created_at: 'desc' },
@@ -176,6 +194,7 @@ export class OrdersService {
         customers: true,
         order_statuses: true,
         shipping_zones: true,
+        shipping_communes: true,
       },
     });
 
@@ -283,6 +302,7 @@ export class OrdersService {
         },
         order_statuses: true,
         shipping_zones: true,
+        shipping_communes: true,
         coupons: true,
       },
     });

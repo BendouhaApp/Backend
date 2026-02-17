@@ -53,6 +53,217 @@ export class ProductsService {
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   }
 
+  private normalizeSearchText(value: unknown): string {
+    return String(value ?? '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private levenshteinDistance(a: string, b: string): number {
+    if (a === b) return 0;
+    if (!a.length) return b.length;
+    if (!b.length) return a.length;
+
+    const prev = new Array<number>(b.length + 1);
+    const curr = new Array<number>(b.length + 1);
+
+    for (let j = 0; j <= b.length; j += 1) {
+      prev[j] = j;
+    }
+
+    for (let i = 1; i <= a.length; i += 1) {
+      curr[0] = i;
+      const aChar = a.charCodeAt(i - 1);
+
+      for (let j = 1; j <= b.length; j += 1) {
+        const cost = aChar === b.charCodeAt(j - 1) ? 0 : 1;
+        curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+      }
+
+      for (let j = 0; j <= b.length; j += 1) {
+        prev[j] = curr[j];
+      }
+    }
+
+    return prev[b.length];
+  }
+
+  private tokenSimilarity(queryToken: string, candidateToken: string): number {
+    if (!queryToken || !candidateToken) return 0;
+
+    if (
+      candidateToken.includes(queryToken) ||
+      queryToken.includes(candidateToken)
+    ) {
+      const overlapRatio =
+        Math.min(queryToken.length, candidateToken.length) /
+        Math.max(queryToken.length, candidateToken.length);
+      return 0.8 + overlapRatio * 0.2;
+    }
+
+    const maxLen = Math.max(queryToken.length, candidateToken.length);
+    if (!maxLen) return 0;
+
+    const distance = this.levenshteinDistance(queryToken, candidateToken);
+    return Math.max(0, 1 - distance / maxLen);
+  }
+
+  private computeFuzzyScore(query: string, candidate: string): number {
+    const normalizedQuery = this.normalizeSearchText(query);
+    const normalizedCandidate = this.normalizeSearchText(candidate);
+
+    if (!normalizedQuery || !normalizedCandidate) return 0;
+    if (normalizedCandidate.includes(normalizedQuery)) return 1;
+
+    const queryTokens = normalizedQuery
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2);
+
+    const candidateTokens = normalizedCandidate
+      .split(' ')
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2);
+
+    if (!queryTokens.length || !candidateTokens.length) {
+      const maxLen = Math.max(normalizedQuery.length, normalizedCandidate.length);
+      if (!maxLen) return 0;
+      const distance = this.levenshteinDistance(
+        normalizedQuery,
+        normalizedCandidate,
+      );
+      return Math.max(0, 1 - distance / maxLen);
+    }
+
+    let tokenScore = 0;
+
+    for (const queryToken of queryTokens) {
+      let bestTokenScore = 0;
+
+      for (const candidateToken of candidateTokens) {
+        const score = this.tokenSimilarity(queryToken, candidateToken);
+        if (score > bestTokenScore) {
+          bestTokenScore = score;
+        }
+        if (bestTokenScore >= 0.99) break;
+      }
+
+      tokenScore += bestTokenScore;
+    }
+
+    tokenScore /= queryTokens.length;
+
+    const compactQuery = normalizedQuery.replace(/\s+/g, '');
+    const compactCandidate = normalizedCandidate.replace(/\s+/g, '');
+    const compactMaxLen = Math.max(compactQuery.length, compactCandidate.length);
+    const compactScore =
+      compactMaxLen > 0
+        ? Math.max(
+            0,
+            1 -
+              this.levenshteinDistance(compactQuery, compactCandidate) /
+                compactMaxLen,
+          )
+        : 0;
+
+    return Math.max(tokenScore, compactScore * 0.9);
+  }
+
+  private computeProductFuzzyScore(search: string, product: any): number {
+    const categoryNames = (product.product_categories ?? [])
+      .map((pc: any) => pc.categories?.category_name)
+      .filter(Boolean)
+      .join(' ');
+
+    const candidates = [
+      product.product_name,
+      product.slug,
+      product.sku,
+      product.short_description,
+      product.product_description,
+      product.product_type,
+      categoryNames,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value));
+
+    let bestScore = 0;
+    for (const candidate of candidates) {
+      const score = this.computeFuzzyScore(search, candidate);
+      if (score > bestScore) {
+        bestScore = score;
+      }
+      if (bestScore >= 1) break;
+    }
+
+    return bestScore;
+  }
+
+  private async findPublicFuzzyFallback({
+    search,
+    categoryFilterIds,
+    skip,
+    take,
+    baseUrl,
+  }: {
+    search: string;
+    categoryFilterIds: string[];
+    skip: number;
+    take: number;
+    baseUrl: string;
+  }) {
+    const where: any = {
+      published: true,
+    };
+
+    if (categoryFilterIds.length > 0) {
+      where.product_categories = {
+        some: {
+          category_id: { in: categoryFilterIds },
+        },
+      };
+    }
+
+    const candidates = await this.prisma.products.findMany({
+      where,
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
+      orderBy: { created_at: 'desc' },
+      take: 500,
+    });
+
+    const MIN_FUZZY_SCORE = 0.45;
+
+    const scored = candidates
+      .map((product) => ({
+        product,
+        score: this.computeProductFuzzyScore(search, product),
+      }))
+      .filter((entry) => entry.score >= MIN_FUZZY_SCORE)
+      .sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (
+          new Date(b.product.created_at).getTime() -
+          new Date(a.product.created_at).getTime()
+        );
+      });
+
+    const total = scored.length;
+    const paged = scored
+      .slice(skip, skip + take)
+      .map(({ product }) => this.toPublicProduct(product, baseUrl));
+
+    return { data: paged, total };
+  }
+
   private deleteFile(filePath?: string | null) {
     if (!filePath) return;
 
@@ -474,6 +685,26 @@ export class ProductsService {
       }),
       this.prisma.products.count({ where }),
     ]);
+
+    if (q && total === 0) {
+      const fuzzy = await this.findPublicFuzzyFallback({
+        search: q,
+        categoryFilterIds,
+        skip,
+        take: safeLimit,
+        baseUrl,
+      });
+
+      return {
+        data: fuzzy.data,
+        meta: {
+          page: safePage,
+          limit: safeLimit,
+          total: fuzzy.total,
+          totalPages: Math.ceil(fuzzy.total / safeLimit),
+        },
+      };
+    }
 
     return {
       data: products.map((p) => this.toPublicProduct(p, baseUrl)),

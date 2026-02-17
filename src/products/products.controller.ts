@@ -148,6 +148,7 @@ export class ProductsController {
   @Get('public')
   async findPublic(
     @Query('categoryId') categoryId?: string,
+    @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -159,6 +160,7 @@ export class ProductsController {
 
     return this.productsService.findPublic({
       categoryId,
+      search: search?.trim(),
       page: Number.isFinite(parsedPage) ? parsedPage : undefined,
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
     });

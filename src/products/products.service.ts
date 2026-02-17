@@ -396,10 +396,12 @@ export class ProductsService {
 
   async findPublic({
     categoryId,
+    search,
     page,
     limit,
   }: {
     categoryId?: string;
+    search?: string;
     page?: number;
     limit?: number;
   } = {}) {
@@ -425,6 +427,27 @@ export class ProductsService {
     const where: any = {
       published: true,
     };
+
+    const q = search?.trim();
+    if (q) {
+      where.OR = [
+        { product_name: { contains: q, mode: 'insensitive' } },
+        { sku: { contains: q, mode: 'insensitive' } },
+        { slug: { contains: q, mode: 'insensitive' } },
+        { short_description: { contains: q, mode: 'insensitive' } },
+        { product_description: { contains: q, mode: 'insensitive' } },
+        { product_type: { contains: q, mode: 'insensitive' } },
+        {
+          product_categories: {
+            some: {
+              categories: {
+                category_name: { contains: q, mode: 'insensitive' },
+              },
+            },
+          },
+        },
+      ];
+    }
 
     if (categoryFilterIds.length > 0) {
       where.product_categories = {

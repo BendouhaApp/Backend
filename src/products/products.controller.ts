@@ -147,11 +147,20 @@ export class ProductsController {
 
   @Get('public')
   async findPublic(
+    @Res({ passthrough: true }) res: Response,
     @Query('categoryId') categoryId?: string,
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('sort') sort?: string,
+    @Query('view') view?: string,
   ) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     const parsedPage =
       page !== undefined && page !== null ? Number(page) : undefined;
 
@@ -163,11 +172,22 @@ export class ProductsController {
       search: search?.trim(),
       page: Number.isFinite(parsedPage) ? parsedPage : undefined,
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+      sort,
+      view,
     });
   }
 
   @Get('public/:id')
-  async findPublicOne(@Param('id') id: string) {
+  async findPublicOne(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=120, s-maxage=600, stale-while-revalidate=1200',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     const product = await this.productsService.findPublicOne(id);
     return { data: product };
   }

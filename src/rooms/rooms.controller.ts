@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Res } from '@nestjs/common';
 import { ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { RoomsService } from './rooms.service';
 import { SimulateRoomDto } from './dto/simulate-room.dto';
 
@@ -9,12 +10,24 @@ export class RoomsController {
   constructor(private readonly roomsService: RoomsService) {}
 
   @Get('types')
-  getTypes() {
+  getTypes(@Res({ passthrough: true }) res: Response) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=600, s-maxage=3600, stale-while-revalidate=7200',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     return this.roomsService.getRoomTypes();
   }
 
   @Get('templates')
-  getTemplates() {
+  getTemplates(@Res({ passthrough: true }) res: Response) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=600, s-maxage=3600, stale-while-revalidate=7200',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     return this.roomsService.getRoomTemplates();
   }
 
@@ -30,7 +43,16 @@ export class RoomsController {
     example: 'bedroom',
     description: 'Optional room type key to filter obstacles',
   })
-  getObstacles(@Query('type') type?: string) {
+  getObstacles(
+    @Query('type') type?: string,
+    @Res({ passthrough: true }) res?: Response,
+  ) {
+    res?.setHeader(
+      'Cache-Control',
+      'public, max-age=600, s-maxage=3600, stale-while-revalidate=7200',
+    );
+    res?.setHeader('Vary', 'Accept-Encoding');
+
     return this.roomsService.getObstacles(type);
   }
 

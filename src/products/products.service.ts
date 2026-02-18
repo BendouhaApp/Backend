@@ -10,6 +10,9 @@ import slugify from 'slugify';
 import * as fs from 'fs';
 import * as path from 'path';
 
+type PublicProductView = 'full' | 'card';
+type PublicProductsSort = 'newest' | 'price-asc' | 'price-desc';
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -209,12 +212,14 @@ export class ProductsService {
     skip,
     take,
     baseUrl,
+    view,
   }: {
     search: string;
     categoryFilterIds: string[];
     skip: number;
     take: number;
     baseUrl: string;
+    view: PublicProductView;
   }) {
     const where: any = {
       published: true,
@@ -259,7 +264,7 @@ export class ProductsService {
     const total = scored.length;
     const paged = scored
       .slice(skip, skip + take)
-      .map(({ product }) => this.toPublicProduct(product, baseUrl));
+      .map(({ product }) => this.toPublicProduct(product, baseUrl, view));
 
     return { data: paged, total };
   }
@@ -347,7 +352,11 @@ export class ProductsService {
   }
 
   // Normalize the public product payload to keep front-end consumers stable.
-  private toPublicProduct(p: any, baseUrl: string) {
+  private toPublicProduct(
+    p: any,
+    baseUrl: string,
+    view: PublicProductView = 'full',
+  ) {
     const galleryPaths = this.resolveGalleryPaths(p.gallery ?? []);
     const thumbnailPath = this.resolveThumbnailPath(
       p.gallery ?? [],
@@ -387,7 +396,7 @@ export class ProductsService {
       p.product_type ??
       'Uncategorized';
 
-    return {
+    const baseProduct = {
       id: p.id,
       name: p.product_name,
       slug: p.slug,
@@ -398,16 +407,24 @@ export class ProductsService {
       category: categoryLabel,
       categories,
       description: p.short_description,
-      fullDescription: p.product_description,
       image: thumbnailUrl ?? categoryFallbackUrl,
       thumbnail: thumbnailUrl ?? categoryFallbackUrl,
-      images: galleryUrls,
-      gallery: galleryUrls,
       inStock: p.quantity > 0,
       quantity: p.quantity,
       rating: null,
       reviewCount: null,
       badge: null,
+    };
+
+    if (view === 'card') {
+      return baseProduct;
+    }
+
+    return {
+      ...baseProduct,
+      fullDescription: p.product_description,
+      images: galleryUrls,
+      gallery: galleryUrls,
       sizes: null,
       colors: null,
       materials: null,
@@ -610,15 +627,32 @@ export class ProductsService {
     search,
     page,
     limit,
+    sort,
+    view,
   }: {
     categoryId?: string;
     search?: string;
     page?: number;
     limit?: number;
+    sort?: string;
+    view?: string;
   } = {}) {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(100, Math.max(1, Number(limit) || 9));
+    const requestedSort = String(sort ?? 'newest').toLowerCase();
+    const safeSort: PublicProductsSort =
+      requestedSort === 'price-asc' || requestedSort === 'price-desc'
+        ? requestedSort
+        : 'newest';
+    const safeView: PublicProductView =
+      String(view ?? 'full').toLowerCase() === 'card' ? 'card' : 'full';
     const skip = (safePage - 1) * safeLimit;
+    const orderBy =
+      safeSort === 'price-asc'
+        ? { sale_price: 'asc' as const }
+        : safeSort === 'price-desc'
+          ? { sale_price: 'desc' as const }
+          : { created_at: 'desc' as const };
 
     const categoryFilterIds: string[] = [];
 
@@ -692,7 +726,7 @@ export class ProductsService {
             include: { categories: true },
           },
         },
-        orderBy: { created_at: 'desc' },
+        orderBy,
       }),
       this.prisma.products.count({ where }),
     ]);
@@ -704,6 +738,7 @@ export class ProductsService {
         skip,
         take: safeLimit,
         baseUrl,
+        view: safeView,
       });
 
       return {
@@ -718,7 +753,7 @@ export class ProductsService {
     }
 
     return {
-      data: products.map((p) => this.toPublicProduct(p, baseUrl)),
+      data: products.map((p) => this.toPublicProduct(p, baseUrl, safeView)),
       meta: {
         page: safePage,
         limit: safeLimit,

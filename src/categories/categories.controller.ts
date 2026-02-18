@@ -8,12 +8,14 @@ import {
   Delete,
   UseGuards,
   Req,
+  Res,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { ApiTags, ApiParam } from '@nestjs/swagger';
+import type { Response } from 'express';
 
 @ApiTags('Categories')
 @Controller('categories')
@@ -65,13 +67,25 @@ export class CategoriesController {
   }
 
   @Get()
-  findAll() {
+  findAll(@Res({ passthrough: true }) res: Response) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=300, s-maxage=1800, stale-while-revalidate=3600',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     return this.categoriesService.findAll();
   }
 
   @Get(':id')
   @ApiParam({ name: 'id', example: 'uuid-category-id' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id') id: string, @Res({ passthrough: true }) res: Response) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=300, s-maxage=1800, stale-while-revalidate=3600',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
     return this.categoriesService.findOne(id);
   }
 }

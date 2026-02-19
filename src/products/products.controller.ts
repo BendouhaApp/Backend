@@ -149,7 +149,11 @@ export class ProductsController {
   async findPublic(
     @Res({ passthrough: true }) res: Response,
     @Query('categoryId') categoryId?: string,
+    @Query('category') category?: string,
     @Query('search') search?: string,
+    @Query('q') q?: string,
+    @Query('inStock') inStock?: string,
+    @Query('stock') stock?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('sort') sort?: string,
@@ -167,9 +171,19 @@ export class ProductsController {
     const parsedLimit =
       limit !== undefined && limit !== null ? Number(limit) : undefined;
 
+    const effectiveCategoryId = categoryId?.trim() || category?.trim();
+    const effectiveSearch = search?.trim() || q?.trim();
+    const normalizedInStock = inStock?.trim().toLowerCase();
+    const normalizedStock = stock?.trim().toLowerCase();
+    const effectiveInStock =
+      normalizedInStock === 'true' ||
+      normalizedInStock === '1' ||
+      normalizedStock === 'in';
+
     return this.productsService.findPublic({
-      categoryId,
-      search: search?.trim(),
+      categoryId: effectiveCategoryId,
+      search: effectiveSearch,
+      inStock: effectiveInStock || undefined,
       page: Number.isFinite(parsedPage) ? parsedPage : undefined,
       limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
       sort,
@@ -198,15 +212,20 @@ export class ProductsController {
     @Query('page') page = '1',
     @Query('limit') limit = '20',
     @Query('search') search?: string,
+    @Query('q') q?: string,
     @Query('status') status?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('category') category?: string,
   ) {
+    const effectiveCategoryId = categoryId?.trim() || category?.trim();
+    const effectiveSearch = search?.trim() || q?.trim();
+
     return this.productsService.findAll({
       page: Math.max(1, Number(page)),
       limit: Math.min(100, Math.max(1, Number(limit))),
-      search: search?.trim(),
+      search: effectiveSearch,
       status,
-      categoryId,
+      categoryId: effectiveCategoryId,
     });
   }
 

@@ -625,6 +625,7 @@ export class ProductsService {
   async findPublic({
     categoryId,
     search,
+    inStock,
     page,
     limit,
     sort,
@@ -632,6 +633,7 @@ export class ProductsService {
   }: {
     categoryId?: string;
     search?: string;
+    inStock?: boolean;
     page?: number;
     limit?: number;
     sort?: string;
@@ -672,37 +674,38 @@ export class ProductsService {
     const where: any = {
       published: true,
     };
+    if (inStock) {
+      where.quantity = { gt: 0 };
+    }
 
     const q = search?.trim();
     if (q) {
-      const tokens = Array.from(
-        new Set(
-          q
-            .split(/\s+/)
-            .map((token) => token.trim())
-            .filter(Boolean),
-        ),
-      );
+      const tokenCandidates = [
+        q,
+        ...q
+          .split(/\s+/)
+          .map((token) => token.trim())
+          .filter((token) => token.length >= 2),
+      ];
+      const tokens = Array.from(new Set(tokenCandidates));
 
-      where.AND = tokens.map((token) => ({
-        OR: [
-          { product_name: { contains: token, mode: 'insensitive' } },
-          { sku: { contains: token, mode: 'insensitive' } },
-          { slug: { contains: token, mode: 'insensitive' } },
-          { short_description: { contains: token, mode: 'insensitive' } },
-          { product_description: { contains: token, mode: 'insensitive' } },
-          { product_type: { contains: token, mode: 'insensitive' } },
-          {
-            product_categories: {
-              some: {
-                categories: {
-                  category_name: { contains: token, mode: 'insensitive' },
-                },
+      where.OR = tokens.flatMap((token) => [
+        { product_name: { contains: token, mode: 'insensitive' } },
+        { sku: { contains: token, mode: 'insensitive' } },
+        { slug: { contains: token, mode: 'insensitive' } },
+        { short_description: { contains: token, mode: 'insensitive' } },
+        { product_description: { contains: token, mode: 'insensitive' } },
+        { product_type: { contains: token, mode: 'insensitive' } },
+        {
+          product_categories: {
+            some: {
+              categories: {
+                category_name: { contains: token, mode: 'insensitive' },
               },
             },
           },
-        ],
-      }));
+        },
+      ]);
     }
 
     if (categoryFilterIds.length > 0) {

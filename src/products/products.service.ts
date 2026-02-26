@@ -133,7 +133,10 @@ export class ProductsService {
       .filter((token) => token.length >= 2);
 
     if (!queryTokens.length || !candidateTokens.length) {
-      const maxLen = Math.max(normalizedQuery.length, normalizedCandidate.length);
+      const maxLen = Math.max(
+        normalizedQuery.length,
+        normalizedCandidate.length,
+      );
       if (!maxLen) return 0;
       const distance = this.levenshteinDistance(
         normalizedQuery,
@@ -162,7 +165,10 @@ export class ProductsService {
 
     const compactQuery = normalizedQuery.replace(/\s+/g, '');
     const compactCandidate = normalizedCandidate.replace(/\s+/g, '');
-    const compactMaxLen = Math.max(compactQuery.length, compactCandidate.length);
+    const compactMaxLen = Math.max(
+      compactQuery.length,
+      compactCandidate.length,
+    );
     const compactScore =
       compactMaxLen > 0
         ? Math.max(

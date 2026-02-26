@@ -159,12 +159,16 @@ export class ProductsController {
     @Query('sort') sort?: string,
     @Query('view') view?: string,
   ) {
-    res.setHeader(
+    res.setHeader('Cache-Control', 'no-store');
+
+    {
+      /*res.setHeader(
       'Cache-Control',
       'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
     );
-    res.setHeader('Vary', 'Accept-Encoding');
-
+    res.setHeader('Vary', 'Accept-Encoding');*/
+    }
+    
     const parsedPage =
       page !== undefined && page !== null ? Number(page) : undefined;
 

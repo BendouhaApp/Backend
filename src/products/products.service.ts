@@ -848,7 +848,9 @@ export class ProductsService {
     const has = (key: string) => Object.prototype.hasOwnProperty.call(dto, key);
 
     const data: any = {
-      updated_by: adminId,
+      staff_accounts_products_updated_byTostaff_accounts: {
+        connect: { id: adminId },
+      },
     };
 
     if (finalSlug) data.slug = finalSlug;
@@ -908,7 +910,12 @@ export class ProductsService {
         dto.lighting_specs_enabled === 'true';
     }
 
-    if (data.lighting_specs_enabled === false) {
+    const lightingDisabled =
+      has('lighting_specs_enabled') &&
+      (dto.lighting_specs_enabled === false ||
+        dto.lighting_specs_enabled === 'false');
+
+    if (lightingDisabled) {
       data.cct = null;
       data.lumen = null;
       data.cri = null;
@@ -921,7 +928,7 @@ export class ProductsService {
       if (has('power')) data.power = Number(dto.power ?? 10);
       if (has('angle')) data.angle = Number(dto.angle ?? 60);
     }
-
+    
     await this.prisma.$transaction(async (tx) => {
       await tx.products.update({
         where: { id },

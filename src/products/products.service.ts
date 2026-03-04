@@ -902,9 +902,11 @@ export class ProductsService {
       data.note = dto.note ? String(dto.note) : null;
     }
 
-    data.lighting_specs_enabled =
-      dto.lighting_specs_enabled === true ||
-      dto.lighting_specs_enabled === 'true';
+    if (has('lighting_specs_enabled')) {
+      data.lighting_specs_enabled =
+        dto.lighting_specs_enabled === true ||
+        dto.lighting_specs_enabled === 'true';
+    }
 
     if (data.lighting_specs_enabled === false) {
       data.cct = null;

@@ -336,6 +336,7 @@ model products {
   sells                                              sells?
   variant_options                                    variant_options[]
   variants                                           variants[]
+  lighting_specs_enabled                             Boolean                 @default(true)
 
   @@index([published], map: "idx_product_publish")
 }

@@ -436,11 +436,16 @@ export class ProductsService {
       materials: null,
       dimensions: null,
       care: null,
-      cct: p.cct,
-      lumen: p.lumen,
-      cri: p.cri,
-      power: p.power ? parseFloat(p.power.toString()) : null,
-      angle: p.angle,
+      lighting_specs_enabled: p.lighting_specs_enabled,
+      cct: p.lighting_specs_enabled ? p.cct : null,
+      lumen: p.lighting_specs_enabled ? p.lumen : null,
+      cri: p.lighting_specs_enabled ? p.cri : null,
+      power: p.lighting_specs_enabled
+        ? p.power
+          ? parseFloat(p.power.toString())
+          : null
+        : null,
+      angle: p.lighting_specs_enabled ? p.angle : null,
     };
   }
 
@@ -453,6 +458,13 @@ export class ProductsService {
     const slug = slugify(dto.slug || productName, { lower: true });
     const rawCategoryIds = dto.category_ids ?? dto['category_ids[]'];
     const categoryIds = this.normalizeCategoryIds(rawCategoryIds);
+
+    const lightingSpecsEnabled =
+      dto.lighting_specs_enabled === undefined ||
+      dto.lighting_specs_enabled === null
+        ? true
+        : dto.lighting_specs_enabled === true ||
+          dto.lighting_specs_enabled === 'true';
 
     const product = await this.prisma.products.create({
       data: {
@@ -480,11 +492,12 @@ export class ProductsService {
         note: dto.note || null,
         created_by: adminId,
 
-        cct: Number(dto.cct ?? 0),
-        lumen: Number(dto.lumen ?? 0),
-        cri: Number(dto.cri ?? 0),
-        power: Number(dto.power ?? 0),
-        angle: Number(dto.angle ?? 0),
+        lighting_specs_enabled: lightingSpecsEnabled,
+        cct: Number(dto.cct ?? 3000),
+        lumen: Number(dto.lumen ?? 800),
+        cri: Number(dto.cri ?? 90),
+        power: Number(dto.power ?? 10),
+        angle: Number(dto.angle ?? 60),
 
         gallery: {
           create: [
@@ -887,6 +900,12 @@ export class ProductsService {
 
     if (has('note')) {
       data.note = dto.note ? String(dto.note) : null;
+    }
+
+    if (has('lighting_specs_enabled')) {
+      data.lighting_specs_enabled =
+        dto.lighting_specs_enabled === true ||
+        dto.lighting_specs_enabled === 'true';
     }
 
     if (has('cct')) data.cct = Number(dto.cct ?? 0);

@@ -908,11 +908,19 @@ export class ProductsService {
         dto.lighting_specs_enabled === 'true';
     }
 
-    if (has('cct')) data.cct = Number(dto.cct ?? 0);
-    if (has('lumen')) data.lumen = Number(dto.lumen ?? 0);
-    if (has('cri')) data.cri = Number(dto.cri ?? 0);
-    if (has('power')) data.power = Number(dto.power ?? 0);
-    if (has('angle')) data.angle = Number(dto.angle ?? 0);
+    if (data.lighting_specs_enabled === false) {
+      data.cct = null;
+      data.lumen = null;
+      data.cri = null;
+      data.power = null;
+      data.angle = null;
+    } else {
+      if (has('cct')) data.cct = Number(dto.cct ?? 3000);
+      if (has('lumen')) data.lumen = Number(dto.lumen ?? 800);
+      if (has('cri')) data.cri = Number(dto.cri ?? 90);
+      if (has('power')) data.power = Number(dto.power ?? 10);
+      if (has('angle')) data.angle = Number(dto.angle ?? 60);
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.products.update({

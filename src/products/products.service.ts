@@ -488,6 +488,7 @@ export class ProductsService {
         disable_out_of_stock:
           dto.disable_out_of_stock === true ||
           dto.disable_out_of_stock === 'true',
+        pinned: dto.pinned === true || dto.pinned === 'true',
 
         note: dto.note || null,
         created_by: adminId,
@@ -896,6 +897,10 @@ export class ProductsService {
         dto.disable_out_of_stock === 'true';
     }
 
+    if (has('pinned')) {
+      data.pinned = dto.pinned === true || dto.pinned === 'true';
+    }
+
     if (has('product_type')) {
       data.product_type = dto.product_type ? String(dto.product_type) : null;
     }
@@ -928,7 +933,7 @@ export class ProductsService {
       if (has('power')) data.power = Number(dto.power ?? 10);
       if (has('angle')) data.angle = Number(dto.angle ?? 60);
     }
-    
+
     await this.prisma.$transaction(async (tx) => {
       await tx.products.update({
         where: { id },
@@ -1128,6 +1133,31 @@ export class ProductsService {
     });
 
     return { success: true };
+  }
+
+  async findPinned() {
+    const products = await this.prisma.products.findMany({
+      where: {
+        published: true,
+        pinned: true,
+      },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
+      take: 4,
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+
+    return {
+      data: products.map((p) => this.toPublicProduct(p, baseUrl, 'card')),
+    };
   }
 
   async bulkUpdate(

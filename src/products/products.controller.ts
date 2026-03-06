@@ -160,15 +160,12 @@ export class ProductsController {
     @Query('view') view?: string,
   ) {
     res.setHeader('Cache-Control', 'no-store');
-
-    {
-      /*res.setHeader(
+    res.setHeader(
       'Cache-Control',
       'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
     );
-    res.setHeader('Vary', 'Accept-Encoding');*/
-    }
-    
+    res.setHeader('Vary', 'Accept-Encoding');
+
     const parsedPage =
       page !== undefined && page !== null ? Number(page) : undefined;
 
@@ -193,6 +190,17 @@ export class ProductsController {
       sort,
       view,
     });
+  }
+
+  @Get('public/pinned')
+  async findPinned(@Res({ passthrough: true }) res: Response) {
+    res.setHeader(
+      'Cache-Control',
+      'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
+    );
+    res.setHeader('Vary', 'Accept-Encoding');
+
+    return this.productsService.findPinned();
   }
 
   @Get('public/:id')

@@ -1,0 +1,2 @@
+ALTER TABLE "products"
+ADD COLUMN "pinned" BOOLEAN NOT NULL DEFAULT false;

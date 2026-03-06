@@ -1136,7 +1136,9 @@ export class ProductsService {
   }
 
   async findPinned() {
-    const products = await this.prisma.products.findMany({
+    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+
+    const pinned = await this.prisma.products.findMany({
       where: {
         published: true,
         pinned: true,
@@ -1153,10 +1155,35 @@ export class ProductsService {
       },
     });
 
-    const baseUrl = process.env.API_URL || 'http://localhost:3000';
+    if (pinned.length === 4) {
+      return {
+        data: pinned.map((p) => this.toPublicProduct(p, baseUrl, 'card')),
+      };
+    }
+
+    const pinnedIds = pinned.map((p) => p.id);
+
+    const fillerProducts = await this.prisma.products.findMany({
+      where: {
+        published: true,
+        id: { notIn: pinnedIds },
+      },
+      include: {
+        gallery: true,
+        product_categories: {
+          include: { categories: true },
+        },
+      },
+      take: 4 - pinned.length,
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
 
     return {
-      data: products.map((p) => this.toPublicProduct(p, baseUrl, 'card')),
+      data: [...pinned, ...fillerProducts].map((p) =>
+        this.toPublicProduct(p, baseUrl, 'card'),
+      ),
     };
   }
 

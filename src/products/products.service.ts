@@ -466,6 +466,17 @@ export class ProductsService {
         : dto.lighting_specs_enabled === true ||
           dto.lighting_specs_enabled === 'true';
 
+    const wantPinned = dto.pinned === true || dto.pinned === 'true';
+    if (wantPinned) {
+      const pinnedCount = await this.prisma.products.count({
+        where: { pinned: true },
+      });
+
+      if (pinnedCount >= 4) {
+        throw new BadRequestException('Maximum 4 pinned products allowed');
+      }
+    }
+
     const product = await this.prisma.products.create({
       data: {
         slug,
@@ -488,7 +499,7 @@ export class ProductsService {
         disable_out_of_stock:
           dto.disable_out_of_stock === true ||
           dto.disable_out_of_stock === 'true',
-        pinned: dto.pinned === true || dto.pinned === 'true',
+        pinned: wantPinned,
 
         note: dto.note || null,
         created_by: adminId,
@@ -544,7 +555,6 @@ export class ProductsService {
   }
 
   // Only showing the updated findAll method - replace this method in your existing file
-
   async findAll({
     page,
     limit,
@@ -898,7 +908,22 @@ export class ProductsService {
     }
 
     if (has('pinned')) {
-      data.pinned = dto.pinned === true || dto.pinned === 'true';
+      const wantPinned = dto.pinned === true || dto.pinned === 'true';
+
+      if (wantPinned) {
+        const pinnedCount = await this.prisma.products.count({
+          where: {
+            pinned: true,
+            id: { not: id }, // exclude current product
+          },
+        });
+
+        if (pinnedCount >= 4) {
+          throw new BadRequestException('Maximum 4 pinned products allowed');
+        }
+      }
+
+      data.pinned = wantPinned;
     }
 
     if (has('product_type')) {

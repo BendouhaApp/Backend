@@ -49,6 +49,12 @@ export class ProductsController {
     },
   };
 
+  private parseBoolParam(value?: string): boolean | undefined {
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return undefined;
+  }
+
   @UseGuards(AdminJwtGuard)
   @Patch('bulk')
   bulkUpdate(
@@ -159,7 +165,6 @@ export class ProductsController {
     @Query('sort') sort?: string,
     @Query('view') view?: string,
   ) {
-    res.setHeader('Cache-Control', 'no-store');
     res.setHeader(
       'Cache-Control',
       'public, max-age=60, s-maxage=300, stale-while-revalidate=600',
@@ -228,6 +233,10 @@ export class ProductsController {
     @Query('status') status?: string,
     @Query('categoryId') categoryId?: string,
     @Query('category') category?: string,
+    @Query('stock') stock?: string,
+    @Query('pinned') pinnedParam?: string,
+    @Query('lightingSpecs') lightingSpecsParam?: string,
+    @Query('outOfStockVisibility') outOfStockVisibility?: string,
   ) {
     const effectiveCategoryId = categoryId?.trim() || category?.trim();
     const effectiveSearch = search?.trim() || q?.trim();
@@ -238,6 +247,10 @@ export class ProductsController {
       search: effectiveSearch,
       status,
       categoryId: effectiveCategoryId,
+      stock: stock?.trim().toLowerCase(),
+      pinned: this.parseBoolParam(pinnedParam),
+      lightingSpecs: this.parseBoolParam(lightingSpecsParam),
+      outOfStockVisibility: outOfStockVisibility?.trim().toLowerCase(),
     });
   }
 

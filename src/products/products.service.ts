@@ -357,7 +357,6 @@ export class ProductsService {
     return `${baseUrl}${mediaPath}`;
   }
 
-  // Normalize the public product payload to keep front-end consumers stable.
   private toPublicProduct(
     p: any,
     baseUrl: string,
@@ -554,19 +553,26 @@ export class ProductsService {
     return product;
   }
 
-  // Only showing the updated findAll method - replace this method in your existing file
   async findAll({
     page,
     limit,
     search,
     status,
     categoryId,
+    stock,
+    pinned,
+    lightingSpecs,
+    outOfStockVisibility,
   }: {
     page: number;
     limit: number;
     search?: string;
     status?: string;
     categoryId?: string;
+    stock?: string;
+    pinned?: boolean;
+    lightingSpecs?: boolean;
+    outOfStockVisibility?: string;
   }) {
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(50, Math.max(1, Number(limit) || 20));
@@ -592,11 +598,9 @@ export class ProductsService {
       where.published = false;
     }
 
-    // Enhanced category filtering: include products from selected category AND its subcategories
     if (categoryId) {
       const categoryIds = [categoryId];
 
-      // Get all subcategories
       const subcategories = await this.prisma.categories.findMany({
         where: { parent_id: categoryId },
         select: { id: true },
@@ -609,6 +613,26 @@ export class ProductsService {
           category_id: { in: categoryIds },
         },
       };
+    }
+
+    if (pinned !== undefined) {
+      where.pinned = pinned;
+    }
+
+    if (lightingSpecs !== undefined) {
+      where.lighting_specs_enabled = lightingSpecs;
+    }
+
+    if (stock === 'in') {
+      where.quantity = { gt: 0 };
+    } else if (stock === 'out') {
+      where.quantity = { lte: 0 };
+    }
+
+    if (outOfStockVisibility === 'show') {
+      where.disable_out_of_stock = false;
+    } else if (outOfStockVisibility === 'hide') {
+      where.disable_out_of_stock = true;
     }
 
     const [items, total] = await this.prisma.$transaction([

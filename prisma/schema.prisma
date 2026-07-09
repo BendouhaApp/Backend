@@ -35,6 +35,8 @@ model card_items {
   card_id    String?   @db.Uuid
   product_id String?   @db.Uuid
   quantity   Int?      @default(1)
+  color      String?   @db.VarChar(100)
+  dimension  String?   @db.VarChar(100)
   cards      cards?    @relation(fields: [card_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   products   products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
@@ -164,6 +166,8 @@ model order_items {
   order_id   String?   @db.VarChar(50)
   price      Decimal   @db.Decimal
   quantity   Int
+  color      String?   @db.VarChar(100)
+  dimension  String?   @db.VarChar(100)
   orders     orders?   @relation(fields: [order_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   products   products? @relation(fields: [product_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -324,6 +328,8 @@ model products {
   power                                              Decimal?                @default(10) @db.Decimal
   lighting_specs_enabled                             Boolean?                @default(true)
   pinned                                             Boolean                 @default(false)
+  colors                                             Json?
+  dimensions                                         Json?
   card_items                                         card_items[]
   gallery                                            gallery[]
   order_items                                        order_items[]

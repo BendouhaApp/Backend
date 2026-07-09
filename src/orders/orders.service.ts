@@ -122,6 +122,8 @@ export class OrdersService {
             product_id: item.product_id,
             quantity: item.quantity ?? 1,
             price: new Prisma.Decimal(item.products?.sale_price ?? 0),
+            color: item.color,
+            dimension: item.dimension,
           })),
         },
       },

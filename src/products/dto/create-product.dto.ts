@@ -92,6 +92,20 @@ export class CreateProductDto {
   @IsUrl({}, { each: true })
   images?: string[];
 
+  @ApiPropertyOptional({
+    type: [Object],
+    description: 'Available product colors, e.g. [{ "name": "Noir", "value": "#000000" }]',
+  })
+  @IsOptional()
+  colors?: unknown;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Available product dimensions in centimeters',
+  })
+  @IsOptional()
+  dimensions?: unknown;
+
   @ApiPropertyOptional({ type: [String], description: 'Category IDs' })
   @IsOptional()
   @IsArray()

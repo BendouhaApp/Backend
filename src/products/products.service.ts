@@ -5,13 +5,17 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
-import { AdminAction, AdminEntity } from '@prisma/client';
+import { AdminAction, AdminEntity, Prisma } from '@prisma/client';
 import slugify from 'slugify';
 import * as fs from 'fs';
 import * as path from 'path';
 
 type PublicProductView = 'full' | 'card';
 type PublicProductsSort = 'newest' | 'price-asc' | 'price-desc';
+type ProductColorOption = {
+  name: string;
+  value: string;
+};
 
 @Injectable()
 export class ProductsService {
@@ -25,6 +29,118 @@ export class ProductsService {
     const raw = Array.isArray(input) ? input : [input];
     const normalized = raw.map((value) => String(value).trim()).filter(Boolean);
     return Array.from(new Set(normalized));
+  }
+
+  private parseOptionInput(input: unknown): unknown {
+    if (input === undefined || input === null || input === '') return null;
+    if (Array.isArray(input) || typeof input === 'object') return input;
+
+    const raw = String(input).trim();
+    if (!raw) return null;
+
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+  }
+
+  private toStringOptions(input: unknown): string[] {
+    const parsed = this.parseOptionInput(input);
+    const raw = Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === 'string'
+        ? parsed.split(/[\n,;]+/)
+        : [];
+
+    const normalized = raw
+      .map((value) => String(value ?? '').replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+
+    return Array.from(new Set(normalized));
+  }
+
+  private normalizeDimensionOptions(input: unknown): string[] | null {
+    const dimensions = this.toStringOptions(input).map((dimension) => {
+      if (/\b(mm|cm|m)\b/i.test(dimension)) return dimension;
+      return /\d/.test(dimension) ? `${dimension} cm` : dimension;
+    });
+
+    return dimensions.length > 0 ? dimensions : null;
+  }
+
+  private colorValueFromName(name: string): string {
+    const normalized = this.normalizeSearchText(name);
+    const known: Record<string, string> = {
+      noir: '#000000',
+      black: '#000000',
+      blanc: '#ffffff',
+      white: '#ffffff',
+      gris: '#808080',
+      gray: '#808080',
+      grey: '#808080',
+      argent: '#c0c0c0',
+      silver: '#c0c0c0',
+      dore: '#d4af37',
+      gold: '#d4af37',
+      rouge: '#dc2626',
+      red: '#dc2626',
+      bleu: '#2563eb',
+      blue: '#2563eb',
+      vert: '#16a34a',
+      green: '#16a34a',
+      jaune: '#facc15',
+      yellow: '#facc15',
+      rose: '#ec4899',
+      pink: '#ec4899',
+      marron: '#8b5a2b',
+      brown: '#8b5a2b',
+      beige: '#d6c7a1',
+      transparent: '#ffffff00',
+    };
+
+    return known[normalized] ?? '#d1d5db';
+  }
+
+  private normalizeColorOptions(input: unknown): ProductColorOption[] | null {
+    const parsed = this.parseOptionInput(input);
+    const raw = Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === 'string'
+        ? parsed.split(/[\n,;]+/)
+        : [];
+
+    const colors = raw
+      .map((entry) => {
+        if (typeof entry === 'object' && entry !== null) {
+          const candidate = entry as Record<string, unknown>;
+          const name = String(candidate.name ?? '').replace(/\s+/g, ' ').trim();
+          if (!name) return null;
+
+          const rawValue = String(candidate.value ?? '').trim();
+          return {
+            name,
+            value: rawValue || this.colorValueFromName(name),
+          };
+        }
+
+        const parts = String(entry ?? '')
+          .split('|')
+          .map((part) => part.trim());
+        const name = parts[0]?.replace(/\s+/g, ' ').trim();
+        if (!name) return null;
+
+        return {
+          name,
+          value: parts[1] || this.colorValueFromName(name),
+        };
+      })
+      .filter((entry): entry is ProductColorOption => Boolean(entry));
+
+    const unique = new Map<string, ProductColorOption>();
+    colors.forEach((color) => unique.set(color.name.toLowerCase(), color));
+
+    return unique.size > 0 ? Array.from(unique.values()) : null;
   }
 
   private normalizeProductText(value: unknown): string {
@@ -400,6 +516,8 @@ export class ProductsService {
       categories[0]?.category_name ??
       p.product_type ??
       'Uncategorized';
+    const colors = this.normalizeColorOptions(p.colors);
+    const dimensions = this.normalizeDimensionOptions(p.dimensions);
 
     const baseProduct = {
       id: p.id,
@@ -430,10 +548,10 @@ export class ProductsService {
       fullDescription: p.product_description,
       images: galleryUrls,
       gallery: galleryUrls,
-      sizes: null,
-      colors: null,
+      sizes: dimensions,
+      colors,
       materials: null,
-      dimensions: null,
+      dimensions: dimensions?.join(', ') ?? null,
       care: null,
       lighting_specs_enabled: p.lighting_specs_enabled,
       cct: p.lighting_specs_enabled ? p.cct : null,
@@ -502,6 +620,9 @@ export class ProductsService {
 
         note: dto.note || null,
         created_by: adminId,
+        colors: this.normalizeColorOptions(dto.colors) ?? Prisma.JsonNull,
+        dimensions:
+          this.normalizeDimensionOptions(dto.dimensions) ?? Prisma.JsonNull,
 
         lighting_specs_enabled: lightingSpecsEnabled,
         cct: Number(dto.cct ?? 3000),
@@ -956,6 +1077,15 @@ export class ProductsService {
 
     if (has('note')) {
       data.note = dto.note ? String(dto.note) : null;
+    }
+
+    if (has('colors')) {
+      data.colors = this.normalizeColorOptions(dto.colors) ?? Prisma.JsonNull;
+    }
+
+    if (has('dimensions')) {
+      data.dimensions =
+        this.normalizeDimensionOptions(dto.dimensions) ?? Prisma.JsonNull;
     }
 
     if (has('lighting_specs_enabled')) {

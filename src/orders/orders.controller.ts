@@ -20,8 +20,12 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 
   @Post()
-  create(@Query('cart_id') cart_id: string, @Body() dto: CreateOrderDto) {
-    return this.ordersService.create(cart_id, dto);
+  create(
+    @Query('cart_id') cart_id: string,
+    @Body() dto: CreateOrderDto,
+    @Req() req: any,
+  ) {
+    return this.ordersService.create(cart_id, dto, req);
   }
 
   @UseGuards(AdminJwtGuard)
@@ -56,8 +60,8 @@ export class OrdersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(id);
+  findOne(@Param('id') id: string, @Query('phone') phone: string) {
+    return this.ordersService.findOne(id, phone);
   }
 
   @UseGuards(AdminJwtGuard)

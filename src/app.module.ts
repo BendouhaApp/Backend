@@ -16,6 +16,7 @@ import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
 import { AdminWilayaModule } from './admin-wilaya/admin-wilaya.module';
 import { WilayasModule } from './wilayas/wilayas.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { SettingsModule } from './settings/settings.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { RoomsModule } from './rooms/rooms.module';
     AdminWilayaModule,
     WilayasModule,
     RoomsModule,
+    SettingsModule,
   ],
 })
 export class AppModule {}

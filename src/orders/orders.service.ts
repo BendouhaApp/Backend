@@ -2,21 +2,27 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { AdminAction, AdminEntity, Prisma } from '@prisma/client';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
+import { MetaCapiService } from '../settings/meta-capi.service';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly adminsLogsService: AdminsLogsService,
-  ) {}
+    private readonly metaCapiService: MetaCapiService,
+  ) { }
 
-  async create(card_id: string, dto: CreateOrderDto) {
+  async create(card_id: string, dto: CreateOrderDto, req?: any) {
     if (!card_id) {
       throw new BadRequestException('cart_id is required');
     }
@@ -99,7 +105,9 @@ export class OrdersService {
 
     const totalPrice = itemsTotal + shippingPrice;
 
-    const orderId = `ORD-${Date.now()}`;
+    // Generate high-entropy, cryptographically secure random order ID (128 bits of entropy)
+    // Format: ORD-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX (36 chars), completely unguessable to prevent enumeration.
+    const orderId = `ORD-${crypto.randomBytes(16).toString('hex').toUpperCase()}`;
 
     const order = await this.prisma.orders.create({
       data: {
@@ -141,6 +149,58 @@ export class OrdersService {
     await this.prisma.card_items.deleteMany({
       where: { card_id },
     });
+
+    // -------------------------------------------------------------
+    // Asynchronous Meta Conversions API (CAPI) Purchase Dispatch
+    // -------------------------------------------------------------
+    // SECURITY: Derive client IP from trusted proxy header or socket, not untrusted client body
+    const rawForwardedFor = req?.headers?.['x-forwarded-for'];
+    const forwardedIp =
+      typeof rawForwardedFor === 'string'
+        ? rawForwardedFor.split(',')[0].trim()
+        : Array.isArray(rawForwardedFor)
+          ? rawForwardedFor[0]?.trim()
+          : null;
+
+    const clientIp =
+      forwardedIp || req?.ip || req?.socket?.remoteAddress || null;
+
+    const clientUserAgent =
+      (typeof req?.headers?.['user-agent'] === 'string'
+        ? req.headers['user-agent']
+        : null) ||
+      dto.client_user_agent ||
+      null;
+
+    this.metaCapiService
+      .sendPurchaseEvent({
+        orderId: order.id,
+        total: totalPrice,
+        currency: 'DZD',
+        customer: {
+          firstName: dto.customer_first_name,
+          lastName: dto.customer_last_name,
+          phone: dto.customer_phone,
+          commune: commune.display_name,
+          wilaya: zone.display_name,
+          country: 'dz',
+        },
+        items: cart.card_items.map((item) => ({
+          id: item.product_id || item.id,
+          quantity: item.quantity ?? 1,
+          price: Number(item.products?.sale_price ?? 0),
+        })),
+        clientIp,
+        clientUserAgent,
+        fbp: dto.fbp || null,
+        fbc: dto.fbc || null,
+        eventSourceUrl: dto.event_source_url || null,
+      })
+      .catch((capiErr) => {
+        this.logger.error(
+          `[CAPI] Background Purchase dispatch error for order ${order.id}: ${capiErr?.message || capiErr}`,
+        );
+      });
 
     return {
       message: 'Order created successfully',
@@ -188,21 +248,54 @@ export class OrdersService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, phone?: string) {
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      throw new BadRequestException(
+        'Phone number verification is required to look up order details',
+      );
+    }
+
     const order = await this.prisma.orders.findUnique({
       where: { id },
       include: {
         order_items: {
           include: { products: true },
         },
-        customers: true,
-        order_statuses: true,
+        customers: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
+        order_statuses: {
+          select: {
+            id: true,
+            status_name: true,
+            color: true,
+          },
+        },
         shipping_zones: true,
         shipping_communes: true,
       },
     });
 
     if (!order) {
+      throw new NotFoundException('Order not found');
+    }
+
+    // Mandatory 2-factor phone verification
+    const normalizedQueryPhone = phone.replace(/\D/g, '');
+    const normalizedOrderPhone = (order.customer_phone || '').replace(/\D/g, '');
+
+    const isMatch =
+      Boolean(normalizedQueryPhone) &&
+      Boolean(normalizedOrderPhone) &&
+      (normalizedOrderPhone.endsWith(normalizedQueryPhone) ||
+        normalizedQueryPhone.endsWith(normalizedOrderPhone));
+
+    if (!isMatch) {
       throw new NotFoundException('Order not found');
     }
 
@@ -215,6 +308,10 @@ export class OrdersService {
   async update(id: string, dto: UpdateOrderDto, adminId: string) {
     const existing = await this.prisma.orders.findUnique({
       where: { id },
+      include: {
+        order_items: { include: { products: true } },
+        order_statuses: true,
+      },
     });
 
     if (!existing) {
@@ -227,6 +324,10 @@ export class OrdersService {
         order_status_id: dto.order_status_id,
         updated_by: adminId,
       },
+      include: {
+        order_statuses: true,
+        order_items: { include: { products: true } },
+      },
     });
 
     await this.adminsLogsService.log({
@@ -236,6 +337,42 @@ export class OrdersService {
       entityId: id,
       description: 'Order status updated',
     });
+
+    // COD Offline Conversion: If new status is DELIVERED, fire CAPI
+    const statusName = (order.order_statuses?.status_name || '').trim().toLowerCase();
+    const isDelivered =
+      statusName.includes('deliver') ||
+      statusName.includes('livr') ||
+      statusName.includes('complete') ||
+      statusName === 'delivered';
+
+    if (isDelivered) {
+      this.metaCapiService
+        .sendOrderDeliveredEvent({
+          orderId: order.id,
+          total: Number(order.total_price || 0),
+          currency: 'DZD',
+          customer: {
+            firstName: order.customer_first_name,
+            lastName: order.customer_last_name,
+            phone: order.customer_phone,
+            commune: order.customer_commune,
+            wilaya: order.customer_wilaya,
+            country: 'dz',
+          },
+          items: (order.order_items || []).map((item) => ({
+            id: item.product_id || item.id,
+            quantity: item.quantity ?? 1,
+            price: Number(item.price || item.products?.sale_price || 0),
+          })),
+          actionSource: 'system',
+        })
+        .catch((err) => {
+          this.logger.error(
+            `[CAPI] Offline COD delivery event error for order ${order.id}: ${err?.message || err}`,
+          );
+        });
+    }
 
     return {
       message: 'Order updated successfully',

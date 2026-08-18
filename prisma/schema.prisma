@@ -663,3 +663,15 @@ enum AdminEntity {
   USER
   ADMIN
 }
+
+model app_settings {
+  id                   String   @id @default("default") @db.VarChar(50)
+  meta_pixel_id        String?  @db.VarChar(255)
+  meta_capi_token      String?  @db.Text
+  meta_test_event_code String?  @db.VarChar(100)
+  meta_pixel_enabled   Boolean  @default(false)
+  meta_capi_enabled    Boolean  @default(false)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  updated_by           String?  @db.Uuid
+}

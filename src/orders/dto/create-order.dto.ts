@@ -68,4 +68,44 @@ export class CreateOrderDto {
   @IsOptional()
   @IsString()
   order_status_id?: string;
+
+  @ApiPropertyOptional({
+    example: 'fb.1.1558571054389.1098115397',
+    description: 'Facebook Browser ID cookie (_fbp)',
+  })
+  @IsOptional()
+  @IsString()
+  fbp?: string;
+
+  @ApiPropertyOptional({
+    example: 'fb.1.1554386783.AbCdEfGhIjKlMnOpQrStUvWxYz',
+    description: 'Facebook Click ID cookie (_fbc)',
+  })
+  @IsOptional()
+  @IsString()
+  fbc?: string;
+
+  @ApiPropertyOptional({
+    example: 'Chrome/5.0 ...',
+    description: 'Client User Agent for CAPI matching',
+  })
+  @IsOptional()
+  @IsString()
+  client_user_agent?: string;
+
+  @ApiPropertyOptional({
+    example: '105.101.42.18',
+    description: 'Client IP address for CAPI matching',
+  })
+  @IsOptional()
+  @IsString()
+  client_ip_address?: string;
+
+  @ApiPropertyOptional({
+    example: 'https://bendouha.com/checkout',
+    description: 'Event source URL for CAPI',
+  })
+  @IsOptional()
+  @IsString()
+  event_source_url?: string;
 }

@@ -5,8 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateAdminDto } from './dto/create-admin.dto';
-import { UpdateAdminDto } from './dto/update-admin.dto';
+import { CreateAdminDto, UpdateAdminDto } from './dto';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
 import * as bcrypt from 'bcrypt';

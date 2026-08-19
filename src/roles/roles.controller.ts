@@ -12,8 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
+import { CreateRoleDto, UpdateRoleDto } from './dto';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { PermissionsGuard } from '../admin-auth/permissions.guard';
 import { RequirePermissions } from '../admin-auth/require-permissions.decorator';

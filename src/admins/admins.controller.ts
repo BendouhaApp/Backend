@@ -12,8 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminsService } from './admins.service';
-import { CreateAdminDto } from './dto/create-admin.dto';
-import { UpdateAdminDto } from './dto/update-admin.dto';
+import { CreateAdminDto, UpdateAdminDto } from './dto';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { PermissionsGuard } from '../admin-auth/permissions.guard';
 import { RequirePermissions } from '../admin-auth/require-permissions.decorator';

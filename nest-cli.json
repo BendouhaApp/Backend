@@ -4,12 +4,6 @@
   "sourceRoot": "src",
   "entryFile": "main",
   "compilerOptions": {
-    "deleteOutDir": false,
-    "assets": [
-      {
-        "include": "../generated/**/*",
-        "outDir": "dist/generated"
-      }
-    ]
+    "deleteOutDir": true
   }
 }

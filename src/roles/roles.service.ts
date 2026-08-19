@@ -7,8 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateRoleDto } from './dto/create-role.dto';
-import { UpdateRoleDto } from './dto/update-role.dto';
+import { CreateRoleDto, UpdateRoleDto } from './dto';
 import { AdminsLogsService } from '../admins-logs/admins-logs.service';
 import { AdminAction, AdminEntity } from '@prisma/client';
 

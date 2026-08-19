@@ -75,154 +75,158 @@ export class AdminsLogsService {
    * Returns aggregated high-level activity metrics for dashboard & analytics.
    */
   async getActivitySummary(days: number = 30) {
-    const sinceDate = new Date();
-    sinceDate.setDate(sinceDate.getDate() - days);
+    try {
+      const sinceDate = new Date();
+      sinceDate.setDate(sinceDate.getDate() - days);
 
-    const logs = await this.prisma.admins_logs.findMany({
-      where: {
-        created_at: { gte: sinceDate },
-      },
-      include: {
-        staff_accounts: {
-          select: {
-            id: true,
-            username: true,
-            first_name: true,
-            last_name: true,
-            roles: {
-              select: {
-                role_name: true,
+      const logs = await this.prisma.admins_logs.findMany({
+        where: {
+          created_at: { gte: sinceDate },
+        },
+        include: {
+          staff_accounts: {
+            select: {
+              id: true,
+              username: true,
+              first_name: true,
+              last_name: true,
+              roles: {
+                select: {
+                  role_name: true,
+                },
               },
             },
           },
         },
-      },
-      orderBy: { created_at: 'desc' },
-    });
+        orderBy: { created_at: 'desc' },
+      });
 
-    let totalProductsCreated = 0;
-    let totalStockUnitsAdded = 0;
-    let totalOrdersConfirmed = 0;
-    let totalOrderConfirmedRevenue = 0;
-    let totalLogins = 0;
+      let totalProductsCreated = 0;
+      let totalStockUnitsAdded = 0;
+      let totalOrdersConfirmed = 0;
+      let totalOrderConfirmedRevenue = 0;
+      let totalLogins = 0;
 
-    const adminStatsMap = new Map<
-      string,
-      {
-        admin_id: string;
-        username: string;
-        name: string;
-        role: string;
-        total_actions: number;
-        products_created: number;
-        stock_added: number;
-        orders_confirmed: number;
+      const adminStatsMap = new Map<
+        string,
+        {
+          admin_id: string;
+          username: string;
+          name: string;
+          role: string;
+          total_actions: number;
+          products_created: number;
+          stock_added: number;
+          orders_confirmed: number;
+        }
+      >();
+
+      for (const log of logs) {
+        const adminId = log.admin_id;
+        const adminName =
+          `${log.staff_accounts?.first_name || ''} ${log.staff_accounts?.last_name || ''}`.trim() ||
+          log.staff_accounts?.username ||
+          'Unknown';
+        const roleName = log.staff_accounts?.roles?.role_name || 'STAFF';
+
+        if (!adminStatsMap.has(adminId)) {
+          adminStatsMap.set(adminId, {
+            admin_id: adminId,
+            username: log.staff_accounts?.username || 'unknown',
+            name: adminName,
+            role: roleName,
+            total_actions: 0,
+            products_created: 0,
+            stock_added: 0,
+            orders_confirmed: 0,
+          });
+        }
+
+        const stats = adminStatsMap.get(adminId)!;
+        stats.total_actions += 1;
+
+        const meta = (log.metadata as Record<string, any>) || {};
+
+        if (log.action === AdminAction.CREATE && log.entity === AdminEntity.PRODUCT) {
+          totalProductsCreated += 1;
+          stats.products_created += 1;
+        }
+
+        if (meta.quantity_added && Number(meta.quantity_added) > 0) {
+          const qty = Number(meta.quantity_added);
+          totalStockUnitsAdded += qty;
+          stats.stock_added += qty;
+        }
+
+        if (log.action === AdminAction.CONFIRM && log.entity === AdminEntity.ORDER) {
+          totalOrdersConfirmed += 1;
+          stats.orders_confirmed += 1;
+          if (meta.total_price) {
+            totalOrderConfirmedRevenue += Number(meta.total_price) || 0;
+          }
+        }
+
+        if (log.action === AdminAction.LOGIN) {
+          totalLogins += 1;
+        }
       }
-    >();
 
-    for (const log of logs) {
-      const adminId = log.admin_id;
-      const adminName =
-        `${log.staff_accounts?.first_name || ''} ${log.staff_accounts?.last_name || ''}`.trim() ||
-        log.staff_accounts?.username ||
-        'Unknown';
-      const roleName = log.staff_accounts?.roles?.role_name || 'STAFF';
+      const recentHighlights = logs
+        .filter(
+          (l) =>
+            l.entity === AdminEntity.PRODUCT ||
+            l.entity === AdminEntity.ORDER ||
+            l.entity === AdminEntity.ROLE,
+        )
+        .slice(0, 10)
+        .map((l) => ({
+          id: l.id,
+          action: l.action,
+          entity: l.entity,
+          entity_id: l.entity_id,
+          description: l.description,
+          metadata: l.metadata,
+          created_at: l.created_at,
+          admin: {
+            id: l.staff_accounts?.id,
+            username: l.staff_accounts?.username,
+            name: `${l.staff_accounts?.first_name || ''} ${l.staff_accounts?.last_name || ''}`.trim(),
+          },
+        }));
 
-      if (!adminStatsMap.has(adminId)) {
-        adminStatsMap.set(adminId, {
-          admin_id: adminId,
-          username: log.staff_accounts?.username || 'unknown',
-          name: adminName,
-          role: roleName,
+      return {
+        period_days: days,
+        totals: {
+          total_actions: logs.length,
+          products_created: totalProductsCreated,
+          stock_units_added: totalStockUnitsAdded,
+          orders_confirmed: totalOrdersConfirmed,
+          orders_confirmed_revenue: totalOrderConfirmedRevenue,
+          logins: totalLogins,
+        },
+        admin_performance: Array.from(adminStatsMap.values()).sort(
+          (a, b) => b.total_actions - a.total_actions,
+        ),
+        recent_highlights: recentHighlights,
+      };
+    } catch (err: any) {
+      this.logger.error(
+        `Failed to calculate activity summary: ${err?.message || err}`,
+      );
+      return {
+        period_days: days,
+        totals: {
           total_actions: 0,
           products_created: 0,
-          stock_added: 0,
+          stock_units_added: 0,
           orders_confirmed: 0,
-        });
-      }
-
-      const adminStat = adminStatsMap.get(adminId)!;
-      adminStat.total_actions += 1;
-
-      const meta = (log.metadata as Record<string, any>) || {};
-
-      // Track Product Creations & Stock Added
-      if (log.entity === AdminEntity.PRODUCT && log.action === AdminAction.CREATE) {
-        totalProductsCreated += 1;
-        adminStat.products_created += 1;
-        const qty = Number(meta.quantity_added || meta.quantity || 0);
-        if (qty > 0) {
-          totalStockUnitsAdded += qty;
-          adminStat.stock_added += qty;
-        }
-      }
-
-      // Track Product Stock Updates
-      if (log.entity === AdminEntity.PRODUCT && log.action === AdminAction.UPDATE) {
-        if (meta.stock_change?.diff && Number(meta.stock_change.diff) > 0) {
-          const diff = Number(meta.stock_change.diff);
-          totalStockUnitsAdded += diff;
-          adminStat.stock_added += diff;
-        }
-      }
-
-      // Track Order Confirmations
-      if (
-        log.entity === AdminEntity.ORDER &&
-        (log.action === AdminAction.CONFIRM ||
-          (log.action === AdminAction.UPDATE &&
-            (meta.new_status === 'CONFIRMED' || meta.new_status === 'APPROVED' || meta.status === 'CONFIRMED')))
-      ) {
-        totalOrdersConfirmed += 1;
-        adminStat.orders_confirmed += 1;
-        if (meta.total_price) {
-          totalOrderConfirmedRevenue += Number(meta.total_price || 0);
-        }
-      }
-
-      if (log.action === AdminAction.LOGIN) {
-        totalLogins += 1;
-      }
-    }
-
-    const recentHighlights = logs
-      .filter(
-        (l) =>
-          l.entity === AdminEntity.PRODUCT ||
-          l.entity === AdminEntity.ORDER ||
-          l.entity === AdminEntity.ROLE,
-      )
-      .slice(0, 10)
-      .map((l) => ({
-        id: l.id,
-        action: l.action,
-        entity: l.entity,
-        entity_id: l.entity_id,
-        description: l.description,
-        metadata: l.metadata,
-        created_at: l.created_at,
-        admin: {
-          id: l.staff_accounts?.id,
-          username: l.staff_accounts?.username,
-          name: `${l.staff_accounts?.first_name || ''} ${l.staff_accounts?.last_name || ''}`.trim(),
+          orders_confirmed_revenue: 0,
+          logins: 0,
         },
-      }));
-
-    return {
-      period_days: days,
-      totals: {
-        total_actions: logs.length,
-        products_created: totalProductsCreated,
-        stock_units_added: totalStockUnitsAdded,
-        orders_confirmed: totalOrdersConfirmed,
-        orders_confirmed_revenue: totalOrderConfirmedRevenue,
-        logins: totalLogins,
-      },
-      admin_performance: Array.from(adminStatsMap.values()).sort(
-        (a, b) => b.total_actions - a.total_actions,
-      ),
-      recent_highlights: recentHighlights,
-    };
+        admin_performance: [],
+        recent_highlights: [],
+      };
+    }
   }
 
   /**

@@ -8,6 +8,7 @@ import {
   Body,
   UseGuards,
   Req,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AdminsService } from './admins.service';
@@ -39,14 +40,14 @@ export class AdminsController {
 
   @ApiOperation({ summary: 'Get admin account by ID' })
   @Get(':id')
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.adminsService.findOne(id);
   }
 
   @ApiOperation({ summary: 'Update admin account' })
   @Patch(':id')
   update(
-    @Param('id') id: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
     @Body() dto: UpdateAdminDto,
     @Req() req: any,
   ) {
@@ -55,7 +56,10 @@ export class AdminsController {
 
   @ApiOperation({ summary: 'Delete admin account' })
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: any) {
+  remove(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Req() req: any,
+  ) {
     return this.adminsService.remove(id, req.user?.id);
   }
 }

@@ -139,7 +139,14 @@ export class OrdersService {
         order_items: {
           include: { products: true },
         },
-        customers: true,
+        customers: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+          },
+        },
         order_statuses: true,
         shipping_zones: true,
         shipping_communes: true,
@@ -226,7 +233,14 @@ export class OrdersService {
         take: safeLimit,
         include: {
           order_items: { include: { products: true } },
-          customers: true,
+          customers: {
+            select: {
+              id: true,
+              first_name: true,
+              last_name: true,
+              email: true,
+            },
+          },
           order_statuses: true,
           shipping_zones: true,
           shipping_communes: true,
@@ -330,12 +344,44 @@ export class OrdersService {
       },
     });
 
+    const oldStatus = existing.order_statuses?.status_name || 'UNKNOWN';
+    const newStatus = order.order_statuses?.status_name || 'UPDATED';
+    const isConfirmAction =
+      newStatus.toLowerCase().includes('confirm') ||
+      newStatus.toLowerCase().includes('approv') ||
+      newStatus.toLowerCase().includes('valid');
+
+    const customerFullName =
+      `${order.customer_first_name || ''} ${order.customer_last_name || ''}`.trim() ||
+      'Client';
+
+    const orderItemsSummary = (order.order_items || []).map((item) => ({
+      product_id: item.product_id || item.id,
+      product_name: item.products?.product_name || 'Produit',
+      quantity: item.quantity ?? 1,
+      price: Number(item.price || item.products?.sale_price || 0),
+    }));
+
     await this.adminsLogsService.log({
       adminId,
-      action: AdminAction.UPDATE,
+      action: isConfirmAction ? AdminAction.CONFIRM : AdminAction.UPDATE,
       entity: AdminEntity.ORDER,
       entityId: id,
-      description: 'Order status updated',
+      description: isConfirmAction
+        ? `Confirmed order #${id} for ${customerFullName} (${order.order_items?.length || 0} item(s) - ${order.total_price || 0} DZD)`
+        : `Updated order #${id} status: ${oldStatus} -> ${newStatus}`,
+      metadata: {
+        order_id: id,
+        customer_name: customerFullName,
+        customer_phone: order.customer_phone,
+        customer_wilaya: order.customer_wilaya,
+        customer_commune: order.customer_commune,
+        previous_status: oldStatus,
+        new_status: newStatus,
+        total_price: Number(order.total_price || 0),
+        items_count: order.order_items?.length || 0,
+        items: orderItemsSummary,
+      },
     });
 
     // COD Offline Conversion: If new status is DELIVERED, fire CAPI

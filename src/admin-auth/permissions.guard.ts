@@ -3,16 +3,27 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
-  SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import {
+  PERMISSIONS_KEY,
+  ROLES_KEY,
+  RequirePermissions,
+  RequireRole,
+} from './require-permissions.decorator';
 
-export const PERMISSIONS_KEY = 'permissions';
-export const RequirePermissions = (...permissions: string[]) => SetMetadata(PERMISSIONS_KEY, permissions);
-export const ROLES_KEY = 'roles';
-export const RequireRole = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
+export { PERMISSIONS_KEY, ROLES_KEY, RequirePermissions, RequireRole };
 
-@Injectable() //Guard to check if user has required permissions
+export interface AdminUser {
+  id: string;
+  username: string;
+  role: string;
+  roleId?: number;
+  permissions: string[];
+  tokenVersion: number;
+}
+
+@Injectable()
 export class PermissionsGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
@@ -23,24 +34,37 @@ export class PermissionsGuard implements CanActivate {
     );
 
     if (!requiredPermissions || requiredPermissions.length === 0) {
-      return true; // No permissions required
+      return true; // No specific permissions required on this endpoint
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user: AdminUser = request.user;
 
     if (!user || !user.permissions) {
-      throw new ForbiddenException('Insufficient permissions');
+      throw new ForbiddenException(
+        'Access denied: Admin credentials or permissions not found',
+      );
     }
 
-    // Check if user has ALL required permissions
+    // Super Admin wildcard check (* or SUPER_ADMIN role bypasses all checks)
+    if (
+      user.role === 'SUPER_ADMIN' ||
+      user.permissions.includes('*')
+    ) {
+      return true;
+    }
+
+    // Check if user has ALL required permissions for this action
     const hasAllPermissions = requiredPermissions.every((permission) =>
       user.permissions.includes(permission),
     );
 
     if (!hasAllPermissions) {
+      const missingPermissions = requiredPermissions.filter(
+        (p) => !user.permissions.includes(p),
+      );
       throw new ForbiddenException(
-        `Required permissions: ${requiredPermissions.join(', ')}`,
+        `Insufficient permissions. Missing: [${missingPermissions.join(', ')}]`,
       );
     }
 
@@ -48,7 +72,7 @@ export class PermissionsGuard implements CanActivate {
   }
 }
 
-@Injectable() //Guard to check if user has required role
+@Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
@@ -63,13 +87,16 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user: AdminUser = request.user;
 
     if (!user || !user.role) {
       throw new ForbiddenException('Insufficient privileges');
     }
 
-    // Check if user has ANY of the required roles
+    if (user.role === 'SUPER_ADMIN') {
+      return true;
+    }
+
     const hasRole = requiredRoles.includes(user.role);
 
     if (!hasRole) {
@@ -80,13 +107,4 @@ export class RolesGuard implements CanActivate {
 
     return true;
   }
-}
-
-export interface AdminUser {
-  id: string;
-  username: string;
-  role: string;
-  roleId: string;
-  permissions: string[];
-  tokenVersion: number;
 }

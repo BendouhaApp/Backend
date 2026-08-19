@@ -668,7 +668,17 @@ export class ProductsService {
       action: AdminAction.CREATE,
       entity: AdminEntity.PRODUCT,
       entityId: product.id,
-      description: 'Product created',
+      description: `Created product "${product.product_name}" with stock of ${product.quantity} units`,
+      metadata: {
+        product_name: product.product_name,
+        sku: product.sku,
+        quantity_added: Number(product.quantity ?? 0),
+        sale_price: Number(product.sale_price ?? 0),
+        buying_price: product.buying_price ? Number(product.buying_price) : null,
+        compare_price: product.compare_price ? Number(product.compare_price) : null,
+        category_ids: categoryIds,
+        published: product.published,
+      },
     });
 
     return product;
@@ -1192,12 +1202,32 @@ export class ProductsService {
       }
     });
 
+    const oldQty = existing.quantity ?? 0;
+    const newQty = has('quantity') ? Number(dto.quantity ?? 0) : oldQty;
+    const diffQty = newQty - oldQty;
+
     await this.adminsLogsService.log({
       adminId,
       action: AdminAction.UPDATE,
       entity: AdminEntity.PRODUCT,
       entityId: id,
-      description: 'Product updated',
+      description: `Updated product "${existing.product_name}"${diffQty !== 0 ? ` (Stock adjustment: ${diffQty > 0 ? '+' : ''}${diffQty} units)` : ''}`,
+      metadata: {
+        product_name: existing.product_name,
+        sku: existing.sku,
+        stock_change: {
+          old_quantity: oldQty,
+          new_quantity: newQty,
+          diff: diffQty,
+        },
+        price_change: has('sale_price')
+          ? {
+              old_sale_price: Number(existing.sale_price ?? 0),
+              new_sale_price: Number(dto.sale_price ?? 0),
+            }
+          : undefined,
+        updated_fields: Object.keys(dto),
+      },
     });
 
     return this.findOne(id);

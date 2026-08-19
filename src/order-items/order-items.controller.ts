@@ -6,13 +6,20 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common';
 import { OrderItemsService } from './order-items.service';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
 import { UpdateOrderItemDto } from './dto/update-order-item.dto';
-import { ApiTags, ApiParam } from '@nestjs/swagger';
+import { ApiTags, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
+import { PermissionsGuard } from '../admin-auth/permissions.guard';
+import { RequirePermissions } from '../admin-auth/require-permissions.decorator';
 
 @ApiTags('order-items')
+@ApiBearerAuth()
+@UseGuards(AdminJwtGuard, PermissionsGuard)
+@RequirePermissions('orders:update')
 @Controller('order-items')
 export class OrderItemsController {
   constructor(private readonly orderItemsService: OrderItemsService) {}

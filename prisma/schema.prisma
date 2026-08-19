@@ -383,8 +383,12 @@ model room_obstacles {
 
 model roles {
   id             Int              @id @default(autoincrement())
-  role_name      String           @db.VarChar(255)
+  role_name      String           @unique @db.VarChar(255)
+  description    String?          @db.VarChar(255)
+  is_system      Boolean          @default(false)
   permissions    String[]
+  created_at     DateTime         @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime         @default(now()) @updatedAt @db.Timestamptz(6)
   staff_accounts staff_accounts[]
 }
 
@@ -566,6 +570,8 @@ model admins_logs {
 
   @@index([admin_id])
   @@index([entity, entity_id])
+  @@index([action])
+  @@index([created_at])
 }
 
 model suppliers {
@@ -662,6 +668,8 @@ enum AdminEntity {
   SHIPPING
   USER
   ADMIN
+  ROLE
+  SETTINGS
 }
 
 model app_settings {

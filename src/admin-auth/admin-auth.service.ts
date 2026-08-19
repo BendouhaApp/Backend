@@ -396,22 +396,37 @@ export class AdminAuthService {
     userAgent: string,
     reason: string,
   ) {
-    await this.prisma.admins_logs.create({
-      data: {
-        admin_id: adminId || 'UNKNOWN',
-        action: 'LOGIN_FAILED',
-        entity: 'ADMIN',
-        entity_id: adminId ?? username,
-        description: `Failed login for "${username}" ( ${reason} )`,
-        metadata: {
-          username,
-          ip_address: ip,
-          user_agent: userAgent,
-          reason,
-          timestamp: new Date().toISOString(),
+    try {
+      let resolvedAdminId = adminId;
+      if (!resolvedAdminId) {
+        const systemAdmin = await this.prisma.staff_accounts.findFirst({
+          where: { active: true },
+          select: { id: true },
+        });
+        resolvedAdminId = systemAdmin?.id || null;
+      }
+
+      if (!resolvedAdminId) return;
+
+      await this.prisma.admins_logs.create({
+        data: {
+          admin_id: resolvedAdminId,
+          action: 'LOGIN_FAILED',
+          entity: 'ADMIN',
+          entity_id: adminId || username,
+          description: `Failed login for "${username}" (${reason})`,
+          metadata: {
+            attempted_username: username,
+            ip_address: ip,
+            user_agent: userAgent,
+            reason,
+            timestamp: new Date().toISOString(),
+          },
         },
-      },
-    });
+      });
+    } catch {
+      // Silently catch to prevent leaking login status or breaking response flow
+    }
   }
 
   async cleanupExpiredTokens() {

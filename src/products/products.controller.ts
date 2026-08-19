@@ -15,6 +15,8 @@ import {
 import { ProductsService } from './products.service';
 import { ApiTags } from '@nestjs/swagger';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
+import { PermissionsGuard } from '../admin-auth/permissions.guard';
+import { RequirePermissions } from '../admin-auth/require-permissions.decorator';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -55,7 +57,8 @@ export class ProductsController {
     return undefined;
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:update')
   @Patch('bulk')
   bulkUpdate(
     @Body()
@@ -69,13 +72,15 @@ export class ProductsController {
     return this.productsService.bulkUpdate(dto, req.user.id);
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:delete')
   @Delete('bulk')
   bulkDelete(@Body() dto: { ids: string[] }, @Req() req: any) {
     return this.productsService.bulkDelete(dto.ids, req.user.id);
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:create')
   @Post()
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -106,7 +111,8 @@ export class ProductsController {
     );
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:update')
   @Patch(':id')
   @UseInterceptors(
     FileFieldsInterceptor(
@@ -145,7 +151,8 @@ export class ProductsController {
     );
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:delete')
   @Delete(':id')
   remove(@Param('id') id: string, @Req() req: any) {
     return this.productsService.remove(id, req.user.id);
@@ -223,7 +230,8 @@ export class ProductsController {
     return { data: product };
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:read')
   @Get()
   findAll(
     @Query('page') page = '1',
@@ -254,7 +262,8 @@ export class ProductsController {
     });
   }
 
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('products:read')
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(id);

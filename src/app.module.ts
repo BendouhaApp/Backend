@@ -17,6 +17,7 @@ import { AdminWilayaModule } from './admin-wilaya/admin-wilaya.module';
 import { WilayasModule } from './wilayas/wilayas.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { SettingsModule } from './settings/settings.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { SettingsModule } from './settings/settings.module';
 
     PrismaModule,
     AdminsModule,
+    RolesModule,
     CategoriesModule,
     ProductsModule,
     CartModule,

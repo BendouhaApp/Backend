@@ -11,16 +11,19 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
+import { PermissionsGuard } from '../admin-auth/permissions.guard';
+import { RequirePermissions } from '../admin-auth/require-permissions.decorator';
 import { SettingsService } from './settings.service';
 import { UpdateMetaPixelDto } from './dto/update-meta-pixel.dto';
 
 @ApiTags('Settings')
 @Controller()
 export class SettingsController {
-  constructor(private readonly settingsService: SettingsService) { }
+  constructor(private readonly settingsService: SettingsService) {}
 
   @ApiBearerAuth()
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('marketing:read')
   @ApiOperation({ summary: 'Get Meta Pixel settings for admin dashboard' })
   @Get('admin/settings/meta-pixel')
   getAdminMetaPixel() {
@@ -28,7 +31,8 @@ export class SettingsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('marketing:update')
   @ApiOperation({ summary: 'Update Meta Pixel settings via PATCH' })
   @Patch('admin/settings/meta-pixel')
   patchAdminMetaPixel(@Body() dto: UpdateMetaPixelDto, @Req() req: any) {
@@ -36,7 +40,8 @@ export class SettingsController {
   }
 
   @ApiBearerAuth()
-  @UseGuards(AdminJwtGuard)
+  @UseGuards(AdminJwtGuard, PermissionsGuard)
+  @RequirePermissions('marketing:update')
   @ApiOperation({ summary: 'Update Meta Pixel settings via POST' })
   @Post('admin/settings/meta-pixel')
   postAdminMetaPixel(@Body() dto: UpdateMetaPixelDto, @Req() req: any) {

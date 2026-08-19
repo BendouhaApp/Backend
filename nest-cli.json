@@ -2,9 +2,9 @@
   "$schema": "https://json.schemastore.org/nest-cli",
   "collection": "@nestjs/schematics",
   "sourceRoot": "src",
-  "entryFile": "src/main",
+  "entryFile": "main",
   "compilerOptions": {
-    "deleteOutDir": true,
+    "deleteOutDir": false,
     "assets": [
       {
         "include": "../generated/**/*",
@@ -13,4 +13,3 @@
     ]
   }
 }
-

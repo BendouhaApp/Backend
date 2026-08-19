@@ -1,4 +1,12 @@
-import { Controller, Get, Param, UseGuards, Query, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  UseGuards,
+  Query,
+  NotFoundException,
+  ParseUUIDPipe,
+} from '@nestjs/common';
 import { AdminsLogsService } from './admins-logs.service';
 import { AdminJwtGuard } from '../admin-auth/admin-jwt.guard';
 import { PermissionsGuard } from '../admin-auth/permissions.guard';
@@ -24,7 +32,7 @@ export class AdminsLogsController {
   @Get('summary/:adminId')
   @ApiParam({ name: 'adminId', example: 'uuid-admin-id' })
   async getAdminSummary(
-    @Param('adminId') adminId: string,
+    @Param('adminId', new ParseUUIDPipe({ version: '4' })) adminId: string,
     @Query('days') days?: string,
   ) {
     const summary = await this.logsService.getAdminSummary(
@@ -68,7 +76,7 @@ export class AdminsLogsController {
   @RequirePermissions('logs:read')
   @Get(':id')
   @ApiParam({ name: 'id', example: 'uuid-admin-log-id' })
-  findOne(@Param('id') id: string) {
+  findOne(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string) {
     return this.logsService.findOne(id);
   }
 }
